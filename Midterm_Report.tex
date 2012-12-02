@@ -61,7 +61,7 @@
 					\item The class has a \texttt{key} and \texttt{blob} semantic. \texttt{key} is an actual keypair, access is limited, provides (native level!) methods for signing and verification. \texttt{blob} is just random data \texttt{KeyChain} uses the \texttt{key} semantics for private keys and the \texttt{blob} semantic for certificates. %Sorry, I don't really understand that point. Could you please review and correct it, if necessary.
 					\item \texttt{keystore} provides an OpenSSL engine called \texttt{keystore}, which should be able to load private keys. %As I see it, this actually receives PKCS#8 containers, doesn't it?
 				\end{itemize}
-			\item [CertInstaller] %TODO: Expand!
+			\item [CertInstaller] The \texttt{CertInstaller} is a system app that lets a user import and install certificates from PKCS\#12 container format files.%TODO: Expand!
 		\end{description}
 
 	\subsection{Proposed Implementation Ideas}
@@ -116,11 +116,21 @@
 			As a result, this is the only working constellation we could acquire.
 
 \section{Implementing the framework}
-Once we have decided, we're doing this manually, we needed to determine, how our interface should look.
-%TODO: Proposed API for our CryptOracle goes here!
+	Once we have decided, we're doing this manually, we needed to determine, how our interface should look. On the side of the framework, there isn't terribly much methods that have to be available. The once that have to exposed via an API are:
+	\begin{enumerate} %TODO: Did I miss any methods?
+		\item Encrypt
+		\item Decrypt
+		\item Sign
+		\item Verify
+		\item Start a key selection dialog.
+		\item Im/export public \& private key.
+		\item Im/export public key only.
+		\item Delete key (public \& private at once)
+	\end{enumerate}
+	Keys itself are referenced by an string alias. The permission to use a key is given on a per app basis and managed by the \texttt{keystore}. Our system app doesn't need to check permissions therefor. If a app doesn't have the permission, to access a key, it'll get handled as if the key were non existent.
 
-\section{Extend the system apps}
-%TODO: What were going to do on the app side goes here. Is this needed in the Midterm report?
+\section{Perspective - or - Extend the system apps}
+In our further planning and development, we want to integrate the contacts, and stock e-mail app with native support for our crypt oracle. The steps therefor have yet to be evaluated.
 
 \end{document}
 
