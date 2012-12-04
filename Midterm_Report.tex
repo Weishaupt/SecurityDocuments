@@ -1,4 +1,4 @@
-\documentclass[a4paper]{scrartcl}
+\documentclass[a4paper,draft]{scrartcl}
 
 \usepackage[english]{babel} %English 
 %\usepackage[T1]{fontenc}
@@ -36,8 +36,10 @@
 \tableofcontents
 
 \section{Introduction}
-	Since Android API Level\footnote{\url{http://developer.android.com/guide/topics/manifest/uses-sdk-element.html\#ApiLevels}} 14 (4.0 Ice Cream Sandwich) the KeyChain\footnote{\url{http://developer.android.com/reference/android/security/KeyChain.html}} class exists in Android. The KeyChain class provides access to private keys and their corresponding certificate chains in credential storage.\\
-	Whenever in the current implementation an authorized add calls to retrieve the private key, it'll get it. Our goal is to extend the given functionality further with a crypto oracle. With that functionality, apps should call the API with what they wanted to be en/decrypted or signed/verified. In the process of en/decryption and signing the API would return the respective string. With verifying the API would return a boolean.\\
+	Since Android API Level\footnote{\url{http://developer.android.com/guide/topics/manifest/uses-sdk-element.html\#ApiLevels}} 14 (4.0 Ice Cream Sandwich) the KeyChain\footnote{\url{http://developer.android.com/reference/android/security/KeyChain.html}} class exists in Android. The KeyChain class provides access to private keys and their corresponding certificate chains in credential storage.
+
+	Whenever in the current implementation an authorized add calls to retrieve the private key, it'll get it. Our goal is to extend the given functionality further with a crypto oracle. With that functionality, apps should call the API with the data they want en-/decrypted or signed/verified. In the process of en-/decryption and signing the API would return the respective string. With verifying the API would return a boolean indicating verification success.
+
 	Besides the new API, we want to alter at least one system app to comply with our enhanced KeyChain.
 
 \section{Initial Situation}
@@ -45,27 +47,42 @@
 
 	\subsection{Class Overview}
 		\begin{description}
-			\item[KeyChain] The \texttt{KeyChain} app is the Java API for importing PKCS\#12 containers (private keys, public certificates and ca certificates). The PKCS\#12 format allows the container to be encrypted and/or signed.
+			\item[KeyChain] is the Android API for importing PKCS\#12 containers (private keys, public key certificates and CA certificates) and providing grant-based access to the keys to apps. The PKCS\#12 format allows the container to be encrypted and/or signed.
 				\begin{itemize}
-					\item Intents for importing PKCS\#12 containers are handled in \path{com.android.certinstaller} (source at \path{packages/apps/CertInstaller/CertInstaller.java} et al.).
-					\item Private as well as public keys (certificates) can be requested (handled in \path{com.android.KeyChain}, source at \path{packages/apps/KeyChain/KeyChainActivity.java}).
+					\item when an import is requested the API creates an Intent, which is handled in the system app \path{com.android.certinstaller} (source at \path{packages/apps/CertInstaller/CertInstaller.java} et al.). CertInstaller spawns a dialog and handles the decryption process as well as stores the keys in the \texttt{keystore} daemon (see below).
+					\item Keys are identified by aliases, which are chosen by the user when the CertInstaller is invoked with an import request.
+					\item Private as well as public keys (certificates) can be requested:
 					\begin{itemize}
-						\item If a private key access was granted, you can load it using \texttt{getPrivate\-Key()}.
-						\item Certificates (ie. public keys) can be retrieved through \texttt{getCertificate\-Chain()}, which returns the chain with the main cert itself in the zero slot.
+						\item If acceess to a private key was granted to the requesting app, it can be retrieved using \texttt{getPrivateKey()}.
+						\item Public keys can be retrieved through \texttt{getCertificateChain()}
 					\end{itemize}
-				\item Also contains \texttt{AndroidKeyPairGenerator}, which seems to store keys in \texttt{key\-store} automatically. %Maybe better not say anything that "seems to be" like something.
+				\item Also contains \texttt{AndroidKeyPairGenerator} since Android 4.2, which generates and stores key pairs in \texttt{key\-store} automatically.
 				\end{itemize}
+
+			\pagebreak[3]
 			\item[keystore] The \texttt{keystore} is the native deamon (written in C) that holds encrypted key information.
 				\begin{itemize}
-					\item The storage is encrypted with a master key which is derived from the unlock PIN or pattern on the \emph{first successful unlock attempt} of the device. The keystore won't lock again \emph{until the phone is powered off}. This means, the keystore protects for example from rooting, but not from live-debugging.
-					\item The class has a \texttt{key} and \texttt{blob} semantic. \texttt{key} is an actual keypair, access is limited, provides (native level!) methods for signing and verification. \texttt{blob} is just random data \texttt{KeyChain} uses the \texttt{key} semantics for private keys and the \texttt{blob} semantic for certificates. %Sorry, I don't really understand that point. Could you please review and correct it, if necessary.
+					\item The storage is encrypted with a master key which is derived from the unlock passphrase, PIN or pattern.
+					\item Unlocks on the \emph{first successful unlock attempt} of the device, won't lock again \emph{until the phone is powered off}. This means the keystore is protected for example from rooting, but not from live-debugging. (It is possible for apps to lock it manually, though.)
+					\item The service supports two storage types:
+					\begin{itemize}
+						\item[key] is a RSA keypair. Once stored the private key cannot be exported again, more on this later.
+						\item[blob] can be arbitrary data.
+					\end{itemize}
 					\item \texttt{keystore} provides an OpenSSL engine called \texttt{keystore}, which should be able to load private keys. %As I see it, this actually receives PKCS#8 containers, doesn't it?
 				\end{itemize}
-			\item [CertInstaller] The \texttt{CertInstaller} is a system app that lets a user import and install certificates from PKCS\#12 container format files.%TODO: Expand!
+			\item [CertInstaller] The \texttt{CertInstaller} is a system app that lets a user import and install key pairs and certificates from PKCS\#12 container format files. %TODO: Expand!
 		\end{description}
+
+
+
+
+
 
 	\subsection{Proposed Implementation Ideas}
 		Before we could get any real work done, we needed an angle on how we could implement our enhancements.
+
+		Using \texttt{keystore}'s own \texttt{key} storage format sounded promising, as it already applies non-exportability and provides sign/verify operations.
 		\subsubsection{AndroidKeyPairGenerator \& KeyChain}
 			At first we tried to reuse as much code as possible.		
 			\begin{enumerate}
@@ -75,41 +92,54 @@
 			\end{enumerate}
 			The results were rather frustrating. \texttt{AndroidKeyPairGenerator} isn't really well developed as of yet.
 			\begin{itemize}
-				\item It's not registered as a \texttt{KeyPairGenerator} provider, so we either have to change the ROM or have to register it for our app only.
-				\item It's not configurable in terms of private key parameters (key size!, key type\footnote{Key type is sort of hard coded to RSA for now anyway. If we don't use the given architecture anyway, we might be able to use DSA and ElGamal.})
+				\item It's not registered as a \texttt{java.security.KeyPairGenerator} provider, so we either have to change the ROM or each app will have to register it on itself.
+				\item It's not configurable in terms of private key parameters (key size, key type\footnote{At this point, the key type is hard coded to RSA by the \texttt{keystore} anyway. While we could store the keys as blobs to support more key formats, the current Android \texttt{java.security.Security} providers only support RSA for asymmetric encryption and RSA and DSA for signatures, so we wouldn't win much.})
 			\end{itemize}
-			In conclusion: While we could live with the rest, fixed key size is not quite what we were hoping for. Also, for some reason, \path{KeyChain.getPrivateKey()} does not work, what results in \texttt{keystore} failing with \texttt{KEY\_NOT\_FOUND}
-		
-		\subsubsection{KeyPairGenerator \& CertInstaller}
-			Instead of using the Android specific \texttt{KeyPairGenerator}, one could also use the default \texttt{KeyPairGenerator}\footnote{\url{http://docs.oracle.com/javase/6/docs/api/java/security/KeyPairGenerator.html}} provided by Java and use \texttt{CertInstaller} to store the keypair.
-			
-			As a result here, the \texttt{CertInstaller} is restrictive in its usage. One can only process encrypted PKCS\#12 containers with it. As we already have the insides of the container (because we were generating it with \texttt{KeyPairGenerator}) we have no need in packing it, encryt it, just to decrypt and unpack it again.
-			
-		\subsubsection{Idea 3} %TODO: Correct title
-			%TODO:I don't really get the hang of idea 3. What is the problem there?
+			In conclusion: While we could live with the rest, fixed key size is not quite what we were hoping for. Also, for some reason, \path{KeyChain.getPrivateKey()} does not work - the \texttt{keystore} fails with \texttt{KEY\_NOT\_FOUND}.
 
-		\subsubsection{Move code from KeyChain to CertInstaller}
-			By moving code from the \texttt{KeyChain} app to the \texttt{CertInstaller} app the key generation and storage works. The problem here is, that \path{KeyChain.getPrivateKey()} won't work. It turns out: \texttt{getPrivateKey()} uses \path{KeyChainService.requestPrivateKey()}, which adds the system uid (1000) to the key. In the end the \texttt{keystore} daemon tries to read \texttt{1000\_1000\_USRPKEY\_alias} instead of \texttt{1000\_USRPKEY\_alias}.
-			
-			Conclusion: We won't use \texttt{KeyChain.getPrivateKey()}.
-			
-		\subsubsection{Use our code in CertInstaller}
+
+
+		\subsubsection{KeyPairGenerator \& CertInstaller}
+			When importing a PKCS\#12 file the \texttt{CertInstaller} does the following:
 			\begin{enumerate}
-				\item Use our code in \texttt{CertInstaller}.
-				\item Manually generate key, send to \texttt{CredentialStorage} for storage.
-				\item For decryption, load private key using \texttt{keystore} OpenSSL engine (like \texttt{KeyChain} does).
+			\item ask the user for the container's password
+			\item decrypt the container, parse contents to \texttt{java.security.PrivateKey}
+			\item ask the user to provide an alias for further identification of the key pair
+			\item re-encode the keys
+			\item send to \texttt{com.android.settings.CredentialStorage}, which sends the key to the \texttt{keystore} daemon for storage
+			\end{enumerate}
+			
+			Instead of using the Android specific \texttt{KeyPairGenerator}, we could use the default \texttt{KeyPairGenerator}\footnote{\url{http://docs.oracle.com/javase/6/docs/api/java/security/KeyPairGenerator.html}} provided by Java and send the key pair to \texttt{CertInstaller} to handle the storage.
+			
+			Unfortunately, we were unable to skip the first two steps - we would have had to provide our keys as encrypted PKCS\#12 containers. As we already had the contents of the container (because we were generating it with \texttt{KeyPairGenerator}), it wouldn't make sense to pack and encrypt them, just to decrypt and unpack them again.
+			
+			Thus we implemented step 3 to 5 on our own and let \texttt{CredentialStorage} take care of the storage\footnote{For this we had to move our code from the \texttt{KeyChain} app to the \texttt{CertInstaller} app because the CredentialStorage refuses to talk to anybody else.}, this left us with working key generation and storage.
+			
+			% TODO i don't like this phrasing
+			The problem now is, that \path{KeyChain.getPrivateKey()} won't work. It turns out: \texttt{getPrivateKey()} uses prepares the alias by checking some permissions and adding the system uid (1000) to the name. In the end the \texttt{keystore} daemon tried to read \texttt{1000\_1000\_USRPKEY\_alias} instead of \texttt{1000\_USRPKEY\_alias}.
+
+			Conclusion: We can't use \texttt{KeyChain.getPrivateKey()} either.
+
+		\pagebreak[4]
+		\subsubsection{CertInstaller \& OpenSSL engine}
+			The keystore offers a custom OpenSSL engine which provides access to \texttt{PrivateKey} objects backed by the storage.
+
+			\begin{enumerate}
+				\item Use our code in \texttt{CertInstaller} as outlined above.
+				\item For decryption, load private key directly from the \texttt{keystore} OpenSSL engine (like \texttt{KeyChain} does).
 				\item For encryption, load public key using \path{KeyChain.getCertificateChain()}
 			\end{enumerate}
-			Conclusions:
-			\begin{enumerate}
-				\item The \emph{decryption crashes the process} (SIGSEGV, not a java exception)
-				\item \texttt{keystore}'s \texttt{key} semantic is broken. The \texttt{keystore} only allows access to the public key, even returning the public key when a private key was requested. The included OpenSSL Java-API parses this as a \texttt{PrivateKey} and returns this. Any privatekey-crypto operation obviously crashes.
-			\end{enumerate}
+
+			Observation:
+			The \emph{decryption crashes the process} (SIGSEGV, not a java exception)
+
+			Conclusion:
+			texttt{keystore}'s \texttt{key} type is broken. The \texttt{keystore} only allows access to the public key, it seems to returning the public key even when a private key was requested. The included OpenSSL Java-API parses this as a \texttt{PrivateKey} and returns this. Any privatekey-crypto operation obviously crashes.
 		
 		\subsubsection{Do everything manually}
-			Obviously none of the above ideas where very fulfilling. As a result we're going to do everything in our own code. That means:
+			Obviously none of the above ideas where very fulfilling. As a result we're going to do everything in our own code and store the keys as blobs in the \texttt{keystore}. That means:
 			\begin{enumerate}
-				\item Manually generate key, manually store key in \texttt{keystore} as PKCS\#8 (not PKCS\#12) encoded blob and certificate as PEM encoded blob.
+				\item Manually generate key, manually store it in \texttt{keystore} as PKCS\#8 (not PKCS\#12) encoded blob and certificate as PEM encoded blob.
 				\item For encryption, manually load certificate from \texttt{keystore}, parse it, feed to \path{java.security.Cipher}.
 				\item For decryption, manually load private key from \texttt{keystore}, parse it, feed to \path{java.security.Cipher}
 			\end{enumerate}
