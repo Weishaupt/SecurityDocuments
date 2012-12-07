@@ -53,7 +53,7 @@
 					\item Keys are identified by aliases, which are chosen by the user when the CertInstaller is invoked with an import request.
 					\item Private as well as public keys (certificates) can be requested:
 					\begin{itemize}
-						\item If acceess to a private key was granted to the requesting app, it can be retrieved using \texttt{getPrivateKey()}.
+						\item If access to a private key was granted to the requesting app, it can be retrieved using \texttt{getPrivateKey()}.
 						\item Public keys can be retrieved through \texttt{getCertificateChain()}
 					\end{itemize}
 				\item Also contains \texttt{AndroidKeyPairGenerator} since Android 4.2, which generates and stores key pairs in \texttt{key\-store} automatically.
@@ -93,7 +93,7 @@
 			The results were rather frustrating. \texttt{AndroidKeyPairGenerator} isn't really well developed as of yet.
 			\begin{itemize}
 				\item It's not registered as a \texttt{java.security.KeyPairGenerator} provider, so we either have to change the ROM or each app will have to register it on itself.
-				\item It's not configurable in terms of private key parameters (key size, key type\footnote{At this point, the key type is hard coded to RSA by the \texttt{keystore} anyway. While we could store the keys as blobs to support more key formats, the current Android \texttt{java.security.Security} providers only support RSA for asymmetric encryption and RSA and DSA for signatures, so we wouldn't win much.})
+				\item It's not configurable in terms of private key parameters (key size, key type\footnote{At this point, the key type is hard coded to RSA by the \texttt{keystore} anyway. While we could store the keys as blobs to support more key formats, the current Android \texttt{java.security.Security} providers only support RSA for asymmetric encryption and RSA and DSA for signatures, so we wouldn't gain much.})
 			\end{itemize}
 			In conclusion: While we could live with the rest, fixed key size is not quite what we were hoping for. Also, for some reason, \path{KeyChain.getPrivateKey()} does not work - the \texttt{keystore} fails with \texttt{KEY\_NOT\_FOUND}.
 
@@ -111,7 +111,7 @@
 			
 			Instead of using the Android specific \texttt{KeyPairGenerator}, we could use the default \texttt{KeyPairGenerator}\footnote{\url{http://docs.oracle.com/javase/6/docs/api/java/security/KeyPairGenerator.html}} provided by Java and send the key pair to \texttt{CertInstaller} to handle the storage.
 			
-			Unfortunately, we were unable to skip the first two steps - we would have had to provide our keys as encrypted PKCS\#12 containers. As we already had the contents of the container (because we were generating it with \texttt{KeyPairGenerator}), it wouldn't make sense to pack and encrypt them, just to decrypt and unpack them again.
+			Unfortunately, we were unable to skip the first two steps - we would have had to provide our keys as encrypted PKCS\#12 containers. Since we already had the contents of the container (because we were generating it with \texttt{KeyPairGenerator}), it wouldn't make sense to pack and encrypt them, just to decrypt and unpack them again.
 			
 			Thus we implemented step 3 to 5 on our own and let \texttt{CredentialStorage} take care of the storage\footnote{For this we had to move our code from the \texttt{KeyChain} app to the \texttt{CertInstaller} app because the CredentialStorage refuses to talk to anybody else.}, this left us with working key generation and storage.
 			
