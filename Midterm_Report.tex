@@ -163,7 +163,8 @@
 		\item sign(keyId, plaintext) \totype signature
 		\item verify(keyId, plaintext, signature) \totype isValid
 		\item requestKey() \totype keyId
-		\item getPublicKey(keyId) \totype PublicKey\footnote{Apps could need this for key exchange.}
+		\item storePublicKey(keyId, publicKey) \totype void
+		\item getPublicKey(keyId) \totype PublicKey
 	\end{enumerate}
 	Keys itself are referenced by an string alias.
 
