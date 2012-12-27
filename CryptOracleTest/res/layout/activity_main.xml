@@ -86,5 +86,38 @@
         android:layout_marginLeft="@dimen/indent"
         android:onClick="generateClicked"
         android:text="Generate" />
+    
+    <Button
+        android:id="@+id/sign_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true"
+        android:layout_below="@+id/decrypt_button"
+        android:layout_marginLeft="@dimen/indent"
+        android:onClick="signClicked"
+        android:text="Sign" />
+    
+    <Button
+        android:id="@+id/verify_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true"
+        android:layout_below="@+id/sign_button"
+        android:layout_marginLeft="@dimen/indent"
+        android:onClick="verifyClicked"
+        android:text="Verify" />
+    
+    <Button
+        android:id="@+id/test_import_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true"
+        android:layout_below="@+id/verify_button"
+        android:layout_marginLeft="@dimen/indent"
+        android:onClick="accessPublicClicked"
+        android:text="Test Public Key Import / Export" />
 
 </RelativeLayout>
