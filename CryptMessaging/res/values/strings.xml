@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recipients_label">Recipients</string>
+    <string name="send_label">Send</string>
+    <string name="text_label">Message</string>
+    <string name="pick_recipient_toast">Please select a valid recipient first.</string>
+</resources>
