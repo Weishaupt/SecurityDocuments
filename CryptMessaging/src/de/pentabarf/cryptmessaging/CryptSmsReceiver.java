@@ -160,10 +160,8 @@ public class CryptSmsReceiver extends BroadcastReceiver {
 	    Object[] pdus) {
 	ContentValues values = new ContentValues();
 	values.put("address", msg.getDisplayOriginatingAddress());
-	if (msg.getTimestampMillis() < 1)
-	    values.put("date", System.currentTimeMillis());
-	else
-	    values.put("date", msg.getTimestampMillis());
+	values.put("date", System.currentTimeMillis());
+	values.put("date_sent", msg.getTimestampMillis());
 	values.put("read", Integer.valueOf(0));
 	if (msg.getPseudoSubject().length() > 0) {
 	    values.put("subject", msg.getPseudoSubject());
