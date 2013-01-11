@@ -463,7 +463,7 @@ public class MainActivity extends Activity {
 			try {
 			    return CryptOracle.sign(MainActivity.this,
 				    MainActivity.this.selectedAlias,
-				    "SHA1withRSA", params[0].getBytes());
+				    "SHA1", params[0].getBytes());
 			} catch (Exception e) {
 			    Log.e(TAG, "error while signing data:", e);
 			    return null;
@@ -505,7 +505,7 @@ public class MainActivity extends Activity {
 			try {
 			    return CryptOracle.verify(MainActivity.this,
 				    MainActivity.this.selectedAlias,
-				    "SHA1withRSA", params[0].getBytes(),
+				    "SHA1", params[0].getBytes(),
 				    MainActivity.this.data);
 			} catch (Exception e) {
 			    Log.e(TAG, "error while verifying data:", e);
