@@ -4,10 +4,15 @@ import java.util.ArrayList;
 
 import android.app.Activity;
 import android.app.PendingIntent;
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.Telephony;
+import android.security.CryptOracle;
+import android.security.KeyChain;
+import android.security.KeyChainAliasCallback;
 import android.telephony.SmsManager;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -29,6 +34,9 @@ public class CryptCompose extends Activity {
     private static final String TAG = "CryptCompose";
 
     protected String number = null;
+    
+	protected String selectedAlias;
+	protected CharSequence encryptedMessage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,69 +87,105 @@ public class CryptCompose extends Activity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-	switch (item.getItemId()) {
-	case R.id.menu_send:
-	    if (this.number != null)
-		sendMessage();
-	    else
-		// no autocompleted contact selected
-		Toast.makeText(this, R.string.pick_recipient_toast,
-			Toast.LENGTH_SHORT).show();
-	    return true;
-	default:
-	    return super.onOptionsItemSelected(item);
-	}
-
+		switch (item.getItemId()) {
+		case R.id.menu_send:
+		    if (this.number != null)
+			sendMessage();
+		    else
+			// no autocompleted contact selected
+			Toast.makeText(this, R.string.pick_recipient_toast,
+				Toast.LENGTH_SHORT).show();
+		    return true;
+		default:
+		    return super.onOptionsItemSelected(item);
+		}
     }
 
-    private void sendMessage() {
-	SmsManager sms = SmsManager.getDefault();
+    private void sendMessage() {	
+		TextView textView = ((TextView) findViewById(R.id.text));
+	
+		CharSequence body = textView.getText();
+		
+		//Select Key for encryption
+		KeyChain.choosePrivateKeyAlias(this, new KeyChainAliasCallback() {
+		    @Override
+		    public void alias(String alias) {
+		    	CryptCompose.this.selectedAlias = alias;
+		    }
+		}, null, null, null, 0, null);
+		
+		//encrypt		
+	    new AsyncTask<String, Void, byte[]>() {
 
-	TextView textView = ((TextView) findViewById(R.id.text));
+	    	private String message;
 
-	CharSequence body = textView.getText();
+		    @Override
+		    protected byte[] doInBackground(String... params) {
+		    	this.message = params[0];
+				try {
+				    return CryptOracle.encryptData(CryptCompose.this,
+					    CryptCompose.this.selectedAlias,
+					    "ECB/PKCS1Padding", params[0].getBytes());
+				} catch (Exception e) {
+				    Log.e(TAG, "error while encrypting data:", e);
+				    return null;
+				}
+		    }
 
-	// TODO encrypt
-
-	// store message in queue storage
-	Uri uri = Telephony.Sms
-		.addMessageToUri(getContentResolver(),
-			Uri.parse("content://sms/queued"),
-			this.number /* recipient */, body.toString(),
-			null /* subjcet */,
-			System.currentTimeMillis() /* date */, true /* read */,
-			true /* deliveryReport */);
-
-	// prepare for message sending
-	ArrayList<String> message = sms.divideMessage(body.toString());
-	int messageCount = message.size();
-	ArrayList<PendingIntent> deliveryIntents = new ArrayList<PendingIntent>(
-		messageCount);
-	ArrayList<PendingIntent> sentIntents = new ArrayList<PendingIntent>(
-		messageCount);
-
-	for (int i = 0; i < messageCount; i++) {
-	    // add a pending intent for delivery notification only for the last chunk 
-	    if (i == messageCount - 1)
-		deliveryIntents.add(PendingIntent.getBroadcast(this, 0,
-			new Intent(MESSAGE_STATUS_RECEIVED_ACTION, uri, this,
-				SmsStatusReceiver.class), 0));
-	    else
-		deliveryIntents.add(null);
-
-	    // add pending intent for sending status notification
-	    sentIntents.add(PendingIntent
-		    .getBroadcast(this, 0, new Intent(MESSAGE_SENT_ACTION, uri,
-			    this, SmsStatusReceiver.class), 0));
-	    Log.d(TAG, "sms part " + i + "=" + message.get(i));
-	}
-
-	// move message to outgoing folder
-	Telephony.Sms.moveMessageToFolder(this, uri,
-		Telephony.Sms.MESSAGE_TYPE_OUTBOX, 0);
-	// actual send message
-	sms.sendMultipartTextMessage(this.number, null, message, sentIntents,
-		deliveryIntents);
+		    protected void onPostExecute(byte[] result) {
+			//this.pd.dismiss();
+		    	String crypt = CryptSmsReceiver.ENCODED_MESSAGE_PREFIX + new String(result) + CryptSmsReceiver.ENCODED_MESSAGE_PREFIX;
+		    	CryptCompose.this.sendEncryptedMessage(crypt, this.message);
+		    };
+		}.execute(body.toString());
     }
-
+    
+    
+	void sendEncryptedMessage(String encMessage, String normMessage) {
+		
+		Log.d(TAG, "Encrypted Message:\n" + encMessage);
+		
+		SmsManager sms = SmsManager.getDefault();
+		// store message in queue storage (unencrypted)
+		Uri uri = Telephony.Sms
+			.addMessageToUri(getContentResolver(),
+				Uri.parse("content://sms/queued"),
+				this.number /* recipient */, 
+				encMessage /* message */,
+				null /* subjcet */,
+				System.currentTimeMillis() /* date */, true /* read */,
+				true /* deliveryReport */);
+	
+		// prepare for message sending
+		ArrayList<String> message = sms.divideMessage(encMessage);
+		int messageCount = message.size();
+		ArrayList<PendingIntent> deliveryIntents = new ArrayList<PendingIntent>(
+			messageCount);
+		ArrayList<PendingIntent> sentIntents = new ArrayList<PendingIntent>(
+			messageCount);
+	
+		for (int i = 0; i < messageCount; i++) {
+		    // add a pending intent for delivery notification only for the last chunk 
+		    if (i == messageCount - 1)
+			deliveryIntents.add(PendingIntent.getBroadcast(this, 0,
+				new Intent(MESSAGE_STATUS_RECEIVED_ACTION, uri, this,
+					SmsStatusReceiver.class), 0));
+		    else
+			deliveryIntents.add(null);
+	
+		    // add pending intent for sending status notification
+		    sentIntents.add(PendingIntent
+			    .getBroadcast(this, 0, new Intent(MESSAGE_SENT_ACTION, uri,
+				    this, SmsStatusReceiver.class), 0));
+		    Log.d(TAG, "sms part " + i + "=" + message.get(i));
+		}
+	
+		// move message to outgoing folder
+		Telephony.Sms.moveMessageToFolder(this, uri,
+			Telephony.Sms.MESSAGE_TYPE_OUTBOX, 0);
+		// actual send message
+		sms.sendMultipartTextMessage(this.number, null, message, sentIntents,
+			deliveryIntents);
+    }
+   
 }

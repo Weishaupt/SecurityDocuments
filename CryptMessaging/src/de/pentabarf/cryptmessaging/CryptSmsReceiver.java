@@ -22,9 +22,9 @@ import android.text.style.TextAppearanceSpan;
 import android.util.Log;
 
 public class CryptSmsReceiver extends BroadcastReceiver {
-    // TODO specify protocol
 
     static final String ACTION = "android.provider.Telephony.SMS_RECEIVED";
+    static final String ENCODED_MESSAGE_PREFIX = "@";
 
     private static final int NOTIFICATION_ID = 123;
     private static final String SMS_EXTRA_NAME = "pdus";
@@ -205,49 +205,53 @@ public class CryptSmsReceiver extends BroadcastReceiver {
 	    String contactTitle = lookupContact(context, source);
 
 	    if (contactTitle != null) {
-		// TODO check for encrypted message
+	    	
+	    	//check for encrypted message
+	    	String text = msg.getDisplayMessageBody();
+	    	if(text.startsWith(this.ENCODED_MESSAGE_PREFIX) && text.endsWith(this.ENCODED_MESSAGE_PREFIX) && text.length() > 2) {
+		    	
+				// message is encrypted and the sender is a known crypto contact, don't handle as normal message 
+				abortBroadcast();
+				
+				// assemble, decrypt and store message 
+				String body = restoreMessage(context, msg, pdus);
+				
+				// collect notification info
+				String subject = msg.getPseudoSubject();
+				CharSequence formatted = formatBigMessage(context, body,
+					subject);
 		
-		// if the sender is a known crypto contact, don't handle as normal message 
-		abortBroadcast();
+				Intent contentIntent = new Intent(Intent.ACTION_VIEW,
+					Uri.fromParts("sms",
+						msg.getDisplayOriginatingAddress(), null));
 		
-		// assemble, decrypt and store message 
-		String body = restoreMessage(context, msg, pdus);
+				contentIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 		
-		// collect notification info
-		String subject = msg.getPseudoSubject();
-		CharSequence formatted = formatBigMessage(context, body,
-			subject);
-
-		Intent contentIntent = new Intent(Intent.ACTION_VIEW,
-			Uri.fromParts("sms",
-				msg.getDisplayOriginatingAddress(), null));
-
-		contentIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-		// based on com.android.mms.transaction.MessagingNotification
-		// prepare notification
-		Notification.Builder builder = new Notification.Builder(context);
-		builder.setTicker(buildTickerMessage(contactTitle, subject,
-			msg.getDisplayMessageBody()));
-		builder.setContentTitle(buildTickerMessage(contactTitle, null,
-			null));
-		builder.setContentIntent(PendingIntent.getActivity(context, 0,
-			contentIntent, 0));
-		builder.setSmallIcon(android.R.drawable.stat_notify_chat);
-		builder.setDefaults(Notification.DEFAULT_ALL);
-		builder.setPriority(Notification.PRIORITY_DEFAULT);
-		builder.setContentText(formatted);
-		builder.setAutoCancel(true);
-		// TODO avatar
-
-		Notification notification = new Notification.BigTextStyle(
-			builder).bigText(formatted).build();
-
-		// show notification
-		((NotificationManager) context
-			.getSystemService(Context.NOTIFICATION_SERVICE))
-			.notify(NOTIFICATION_ID, notification);
-
+				// based on com.android.mms.transaction.MessagingNotification
+				// prepare notification
+				Notification.Builder builder = new Notification.Builder(context);
+				builder.setTicker(buildTickerMessage(contactTitle, subject,
+					msg.getDisplayMessageBody()));
+				builder.setContentTitle(buildTickerMessage(contactTitle, null,
+					null));
+				builder.setContentIntent(PendingIntent.getActivity(context, 0,
+					contentIntent, 0));
+				builder.setSmallIcon(android.R.drawable.stat_notify_chat);
+				builder.setDefaults(Notification.DEFAULT_ALL);
+				builder.setPriority(Notification.PRIORITY_DEFAULT);
+				builder.setContentText(formatted);
+				builder.setAutoCancel(true);
+				// TODO avatar
+		
+				Notification notification = new Notification.BigTextStyle(
+					builder).bigText(formatted).build();
+		
+				// show notification
+				((NotificationManager) context
+					.getSystemService(Context.NOTIFICATION_SERVICE))
+					.notify(NOTIFICATION_ID, notification);
+				
+	    	}
 	    }
 
 	}
