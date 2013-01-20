@@ -1,123 +1,130 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/scrolledView"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context=".MainActivity"
-    tools:ignore="HardcodedText" >
+    android:layout_height="match_parent" >
 
-    <Button
-        android:id="@+id/test_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/import_button"
-        android:layout_marginLeft="@dimen/indent"
-        android:onClick="testClicked"
-        android:text="Test" />
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        tools:context=".MainActivity"
+        tools:ignore="HardcodedText" >
 
-    <Button
-        android:id="@+id/select_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/generate_button"
-        android:layout_marginLeft="@dimen/indent"
-        android:onClick="selectClicked"
-        android:text="Select" />
+        <Button
+            android:id="@+id/test_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentRight="true"
+            android:layout_below="@+id/import_button"
+            android:layout_marginLeft="@dimen/indent"
+            android:onClick="testClicked"
+            android:text="Test" />
 
-    <Button
-        android:id="@+id/encrypt_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/select_button"
-        android:layout_marginLeft="@dimen/indent"
-        android:onClick="encryptClicked"
-        android:text="Encrypt" />
+        <Button
+            android:id="@+id/select_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentRight="true"
+            android:layout_below="@+id/textView2"
+            android:layout_marginLeft="@dimen/indent"
+            android:onClick="selectClicked"
+            android:text="Select" />
 
-    <Button
-        android:id="@+id/decrypt_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/encrypt_button"
-        android:layout_marginLeft="@dimen/indent"
-        android:onClick="decryptClicked"
-        android:text="Decrypt" />
+        <Button
+            android:id="@+id/encrypt_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentRight="true"
+            android:layout_below="@+id/select_button"
+            android:layout_marginLeft="@dimen/indent"
+            android:onClick="encryptClicked"
+            android:text="Encrypt" />
 
-    <TextView
-        android:id="@+id/textView1"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentTop="true"
-        android:text="KeyChain API" />
+        <Button
+            android:id="@+id/decrypt_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentRight="true"
+            android:layout_below="@+id/encrypt_button"
+            android:layout_marginLeft="@dimen/indent"
+            android:onClick="decryptClicked"
+            android:text="Decrypt" />
 
-    <Button
-        android:id="@+id/import_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/textView1"
-        android:layout_marginLeft="@dimen/indent"
-        android:onClick="importClicked"
-        android:text="Import" />
+        <TextView
+            android:id="@+id/textView1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentTop="true"
+            android:text="KeyChain API" />
 
-    <TextView
-        android:id="@+id/textView2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
-        android:layout_below="@+id/test_button"
-        android:text="CryptOracle API" />
+        <Button
+            android:id="@+id/import_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentRight="true"
+            android:layout_below="@+id/textView1"
+            android:layout_marginLeft="@dimen/indent"
+            android:onClick="importClicked"
+            android:text="Import" />
 
-    <Button
-        android:id="@+id/generate_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/textView2"
-        android:layout_marginLeft="@dimen/indent"
-        android:onClick="generateClicked"
-        android:text="Generate" />
-    
-    <Button
-        android:id="@+id/sign_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/decrypt_button"
-        android:layout_marginLeft="@dimen/indent"
-        android:onClick="signClicked"
-        android:text="Sign" />
-    
-    <Button
-        android:id="@+id/verify_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/sign_button"
-        android:layout_marginLeft="@dimen/indent"
-        android:onClick="verifyClicked"
-        android:text="Verify" />
-    
-    <Button
-        android:id="@+id/test_import_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/verify_button"
-        android:layout_marginLeft="@dimen/indent"
-        android:onClick="accessPublicClicked"
-        android:text="Test Public Key Import / Export" />
+        <TextView
+            android:id="@+id/textView2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_below="@+id/test_button"
+            android:text="CryptOracle API" />
 
-</RelativeLayout>
+        <Button
+            android:id="@+id/sign_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentRight="true"
+            android:layout_below="@+id/decrypt_button"
+            android:layout_marginLeft="@dimen/indent"
+            android:onClick="signClicked"
+            android:text="Sign" />
+
+        <Button
+            android:id="@+id/verify_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentRight="true"
+            android:layout_below="@+id/sign_button"
+            android:layout_marginLeft="@dimen/indent"
+            android:onClick="verifyClicked"
+            android:text="Verify" />
+
+        <Button
+            android:id="@+id/test_import_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentRight="true"
+            android:layout_below="@+id/verify_button"
+            android:layout_marginLeft="@dimen/indent"
+            android:onClick="accessPublicClicked"
+            android:text="Test Public Key Import / Export" />
+
+        <Button
+            android:id="@+id/test_symmetric_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentRight="true"
+            android:layout_below="@+id/test_import_button"
+            android:layout_marginLeft="@dimen/indent"
+            android:onClick="testSymmetricClicked"
+            android:text="Test Symmetric"  />
+
+    </RelativeLayout>
+
+</ScrollView>
