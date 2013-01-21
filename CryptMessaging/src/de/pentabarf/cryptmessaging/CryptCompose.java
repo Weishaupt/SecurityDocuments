@@ -1,14 +1,22 @@
 package de.pentabarf.cryptmessaging;
 
+import java.security.SecureRandom;
 import java.util.ArrayList;
 
+import javax.crypto.spec.IvParameterSpec;
+
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.PendingIntent;
 import android.app.ProgressDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.provider.ContactsContract;
+import android.provider.ContactsContract.Data;
 import android.provider.Telephony;
 import android.security.CryptOracle;
 import android.security.KeyChain;
@@ -16,12 +24,15 @@ import android.security.KeyChainAliasCallback;
 import android.telephony.SmsManager;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Base64;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -33,10 +44,16 @@ public class CryptCompose extends Activity {
 
     private static final String TAG = "CryptCompose";
 
-    protected String number = null;
+    protected String contactNumber = null;
+    protected String contactId = null;
+    protected CharSequence[] aliasItems = null;
+    protected int selectedItem = -1;
     
 	protected String selectedAlias;
+	protected CharSequence message;
 	protected CharSequence encryptedMessage;
+	
+	private static final int ENCRYPT_ACTION = 2;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,7 +75,7 @@ public class CryptCompose extends Activity {
 	    @Override
 	    public void beforeTextChanged(CharSequence s, int start, int count,
 		    int after) {
-		CryptCompose.this.number = null;
+		CryptCompose.this.contactNumber = null;
 	    }
 
 	    @Override
@@ -72,7 +89,8 @@ public class CryptCompose extends Activity {
 	    @Override
 	    public void onItemClick(AdapterView<?> arg0, View arg1, int arg2,
 		    long arg3) {
-		CryptCompose.this.number = adapter.getContactNumber(arg2);
+		CryptCompose.this.contactNumber = adapter.getContactNumber(arg2);
+		CryptCompose.this.contactId = adapter.getContactId(arg2);
 	    }
 	});
 
@@ -89,7 +107,7 @@ public class CryptCompose extends Activity {
     public boolean onOptionsItemSelected(MenuItem item) {
 		switch (item.getItemId()) {
 		case R.id.menu_send:
-		    if (this.number != null)
+		    if (this.contactNumber != null)
 			sendMessage();
 		    else
 			// no autocompleted contact selected
@@ -100,44 +118,167 @@ public class CryptCompose extends Activity {
 		    return super.onOptionsItemSelected(item);
 		}
     }
-
+    
     private void sendMessage() {	
 		TextView textView = ((TextView) findViewById(R.id.text));
 	
 		CharSequence body = textView.getText();
 		
-		//Select Key for encryption
-		KeyChain.choosePrivateKeyAlias(this, new KeyChainAliasCallback() {
-		    @Override
-		    public void alias(String alias) {
-		    	CryptCompose.this.selectedAlias = alias;
-		    }
-		}, null, null, null, 0, null);
+		if (body.toString().trim() == "")
+			return;
 		
-		//encrypt		
-	    new AsyncTask<String, Void, byte[]>() {
+		this.message = body;
+		
+		//Prepare the Alias selection dialog
+		this.aliasItems = this.getContactAliases();
+		this.selectedItem = -1;
+		
+		AlertDialog.Builder alert = new AlertDialog.Builder(this);
+        alert.setTitle("Provide Key alias");
+        alert.setSingleChoiceItems(this.aliasItems, this.selectedItem, new DialogInterface.OnClickListener() {
+        	@Override
+        	public void onClick(DialogInterface dialog, int item) {
+        		Log.d(TAG, "Selected index:" + item);
+        		CryptCompose.this.selectedItem = item;
+        	}
+        });  
+        
+        alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int whichButton) {
+            	if (CryptCompose.this.selectedItem < 0)
+                	return;            	
+            	
+                CryptCompose.this.selectedAlias = CryptCompose.this.aliasItems[CryptCompose.this.selectedItem].toString(); 
+                
+                Log.d(TAG, "alias:" + CryptCompose.this.selectedAlias);
+                
+                if (CryptCompose.this.selectedAlias == null)
+                	return;
+                
+                Intent i = CryptOracle.createCheckAccessIntent(CryptCompose.this, CryptCompose.this.selectedAlias);
+                startActivityForResult(i, ENCRYPT_ACTION);
+            }
+        });
+        alert.setNeutralButton("Set other alias", new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				AlertDialog.Builder alert = new AlertDialog.Builder(CryptCompose.this);
+				alert.setTitle("Provide Key alias");
+				alert.setMessage("Please provide the key alias with which the message should be encrypted.");
+				//Set an EditText view to get user input
+		        final EditText input = new EditText(CryptCompose.this);
+		        alert.setView(input);
+		        
+		        alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+		            public void onClick(DialogInterface dialog, int whichButton) {
+		                String response = ((TextView) input).getText().toString();
+		                CryptCompose.this.selectedAlias = response;
+		                
+		                if (response == null)
+		                	return;
+		                
+		                Intent i = CryptOracle.createCheckAccessIntent(CryptCompose.this, response);
+		                startActivityForResult(i, ENCRYPT_ACTION);
+		            }
+		        });
+		        alert.setNegativeButton("Cancel",
+		                new DialogInterface.OnClickListener() {
+		                    public void onClick(DialogInterface dialog, int whichButton) {
+		                    	CryptCompose.this.selectedAlias = null;
+		                    }
+		                });
+		        
+		        AlertDialog ad = alert.create();
+		        ad.show();
+			}
+		});
+        alert.setNegativeButton("Cancel",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                    	CryptCompose.this.selectedAlias = null;
+                    }
+                });
+        
+        AlertDialog ad = alert.create();
+        ad.show();
+    }
+    
+    protected CharSequence[] getContactAliases() {
+    	ArrayList<String> list = new ArrayList<String>(3);
+    	
+    	// Iterate through all aliases of a contact
+        Cursor c = getContentResolver().query(ContactsContract.Data.CONTENT_URI,
+                new String[] {
+                        ContactsContract.Data.DATA1, ContactsContract.Data.DATA2
+                },
+                ContactsContract.Data.MIMETYPE + " = 'vnd.android.cursor.item/key' AND " + ContactsContract.Data.CONTACT_ID + " = ?",
+                new String[] {
+                        CryptCompose.this.contactId // _ID aus RawContacts die auf den Kontakt zutrifft
+                },
+                ContactsContract.Data.DATA1 + " ASC");
+                
+        try {
+        	while (c.moveToNext()) {
+            	String alias = c.getString(c.getColumnIndex(ContactsContract.Data.DATA1));
+            	String type = c.getString(c.getColumnIndex(ContactsContract.Data.DATA2));
+            	Log.d(TAG, "alias: " + alias);
+            	Log.d(TAG, "type:" + type);
+            	list.add(alias);
+        	}
+        }
+    	finally {
+        		c.close();
+    	}
+        
+        return list.toArray(new CharSequence[list.size()]);
+    }
+    
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == ENCRYPT_ACTION) {
+        	new AsyncTask<String, Void, byte[]>() {
 
-	    	private String message;
+        		private ProgressDialog pd;
+        		private String msg;
 
-		    @Override
-		    protected byte[] doInBackground(String... params) {
-		    	this.message = params[0];
-				try {
-				    return CryptOracle.encryptData(CryptCompose.this,
-					    CryptCompose.this.selectedAlias,
-					    "ECB/PKCS1Padding", params[0].getBytes());
-				} catch (Exception e) {
-				    Log.e(TAG, "error while encrypting data:", e);
-				    return null;
-				}
-		    }
+                protected void onPreExecute() {
+                    this.pd = new ProgressDialog(CryptCompose.this);
+                    this.pd.setMessage("Encrypting...");
+                    this.pd.setIndeterminate(true);
+                    this.pd.setCancelable(false);
+                    this.pd.show();
+                };
 
-		    protected void onPostExecute(byte[] result) {
-			//this.pd.dismiss();
-		    	String crypt = CryptSmsReceiver.ENCODED_MESSAGE_PREFIX + new String(result) + CryptSmsReceiver.ENCODED_MESSAGE_PREFIX;
-		    	CryptCompose.this.sendEncryptedMessage(crypt, this.message);
-		    };
-		}.execute(body.toString());
+                @Override
+                protected byte[] doInBackground(String... params) {
+                    this.msg = params[0];
+                    Log.d(TAG, this.msg);
+                	try {
+                		SecureRandom rng = SecureRandom.getInstance("SHA1PRNG");
+                        byte[] iv = new byte[16];
+                        rng.nextBytes(iv);
+                        IvParameterSpec ivSpec = new IvParameterSpec(iv); 
+                        
+                        return CryptOracle.encryptData(CryptCompose.this,
+                                CryptCompose.this.selectedAlias, "AES",
+                                "CBC/PKCS7PADDING", params[0].getBytes(), ivSpec);
+                    } catch (Exception e) {
+                        Log.e(TAG, "error while encrypting data:", e);
+                        return null;
+                    }
+                }
+
+                protected void onPostExecute(byte[] result) {
+                    Log.d(TAG, "Crypted Result: " + new String(result));
+                    String crypt = CryptSmsReceiver.ENCODED_MESSAGE_PREFIX + 
+                    		Base64.encodeToString(result, Base64.NO_WRAP) + 
+                    		CryptSmsReceiver.ENCODED_MESSAGE_PREFIX;
+                    this.pd.dismiss();
+    		    	CryptCompose.this.sendEncryptedMessage(crypt, this.msg);
+                };
+        	}.execute(this.message.toString());
+            return;
+        }
     }
     
     
@@ -150,7 +291,7 @@ public class CryptCompose extends Activity {
 		Uri uri = Telephony.Sms
 			.addMessageToUri(getContentResolver(),
 				Uri.parse("content://sms/queued"),
-				this.number /* recipient */, 
+				this.contactNumber /* recipient */, 
 				encMessage /* message */,
 				null /* subjcet */,
 				System.currentTimeMillis() /* date */, true /* read */,
@@ -184,7 +325,7 @@ public class CryptCompose extends Activity {
 		Telephony.Sms.moveMessageToFolder(this, uri,
 			Telephony.Sms.MESSAGE_TYPE_OUTBOX, 0);
 		// actual send message
-		sms.sendMultipartTextMessage(this.number, null, message, sentIntents,
+		sms.sendMultipartTextMessage(this.contactNumber, null, message, sentIntents,
 			deliveryIntents);
     }
    

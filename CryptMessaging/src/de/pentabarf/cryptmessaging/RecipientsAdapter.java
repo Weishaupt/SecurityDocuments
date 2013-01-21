@@ -104,8 +104,13 @@ public class RecipientsAdapter extends ResourceCursorAdapter {
     }
     
     public String getContactNumber(int position) {
-	Cursor c = (Cursor) getItem(position);
-	return c.getString(NUMBER_INDEX);
+		Cursor c = (Cursor) getItem(position);
+		return c.getString(NUMBER_INDEX);
+    }
+    
+    public String getContactId(int position) {
+		Cursor c = (Cursor) getItem(position);
+		return c.getString(CONTACT_ID_INDEX);
     }
 
     @Override
