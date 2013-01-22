@@ -155,7 +155,7 @@ public class CryptCompose extends Activity {
                 if (CryptCompose.this.selectedAlias == null)
                 	return;
                 
-                Intent i = CryptOracle.createCheckAccessIntent(CryptCompose.this, CryptCompose.this.selectedAlias);
+                Intent i = CryptOracle.createCheckAccessIntent(CryptCompose.this, CryptCompose.this.selectedAlias, CryptOracle.UsageType.SECRET);
                 startActivityForResult(i, ENCRYPT_ACTION);
             }
         });
@@ -177,7 +177,7 @@ public class CryptCompose extends Activity {
 		                if (response == null)
 		                	return;
 		                
-		                Intent i = CryptOracle.createCheckAccessIntent(CryptCompose.this, response);
+		                Intent i = CryptOracle.createCheckAccessIntent(CryptCompose.this, response, CryptOracle.UsageType.SECRET);
 		                startActivityForResult(i, ENCRYPT_ACTION);
 		            }
 		        });

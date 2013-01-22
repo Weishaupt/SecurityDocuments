@@ -403,7 +403,7 @@ public class MainActivity extends Activity {
         if (this.selectedAlias == null)
             return;
         
-        Intent i = CryptOracle.createCheckAccessIntent(this, this.selectedAlias);
+        Intent i = CryptOracle.createCheckAccessIntent(this, this.selectedAlias, CryptOracle.UsageType.PUBLIC_ENCRYPT);
         startActivityForResult(i, ENCRYPT_ACTION);
     }
     
@@ -567,7 +567,7 @@ public class MainActivity extends Activity {
         if (this.selectedAlias == null)
             return;
         
-        Intent i = CryptOracle.createCheckAccessIntent(this, this.selectedAlias);
+        Intent i = CryptOracle.createCheckAccessIntent(this, this.selectedAlias, CryptOracle.UsageType.PRIVATE_SIGN);
         startActivityForResult(i, SIGN_ACTION);
     }
 
@@ -575,7 +575,7 @@ public class MainActivity extends Activity {
         if (this.selectedAlias == null)
             return;
 
-        Intent i = CryptOracle.createCheckAccessIntent(this, this.selectedAlias);
+        Intent i = CryptOracle.createCheckAccessIntent(this, this.selectedAlias, CryptOracle.UsageType.PUBLIC_VERIFY);
         startActivityForResult(i, VERIFY_ACTION);        
     }
 
@@ -583,7 +583,7 @@ public class MainActivity extends Activity {
         if (this.selectedAlias == null || this.data == null)
             return;
 
-        Intent i = CryptOracle.createCheckAccessIntent(this, this.selectedAlias);
+        Intent i = CryptOracle.createCheckAccessIntent(this, this.selectedAlias, CryptOracle.UsageType.PRIVATE_DECRYPT);
         startActivityForResult(i, DECRYPT_ACTION);
     }
     
