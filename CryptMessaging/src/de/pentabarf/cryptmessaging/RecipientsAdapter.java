@@ -50,7 +50,7 @@ public class RecipientsAdapter extends ResourceCursorAdapter {
     private class NoteJoinedCursor extends CursorWrapper {
         private final int columnCount;
         private int count = 0;
-        private String note = null;
+        private String keyAlias = null;
         private int position = 0;
         private final String TAG = "NoteJoinedCursor";
 
@@ -67,21 +67,21 @@ public class RecipientsAdapter extends ResourceCursorAdapter {
         @Override
         public void copyStringToBuffer(int columnIndex, CharArrayBuffer buffer) {
             if (columnIndex == getColumnCount() - 1) {
-                if (note != null) {
+                if (keyAlias != null) {
                     if (buffer.data == null
-                            || buffer.data.length < note.length())
-                        buffer.data = note.toCharArray();
+                            || buffer.data.length < keyAlias.length())
+                        buffer.data = keyAlias.toCharArray();
                     else
-                        note.getChars(0, note.length(), buffer.data, 0);
+                        keyAlias.getChars(0, keyAlias.length(), buffer.data, 0);
                 } else
                     buffer.sizeCopied = 0;
             } else
                 super.copyStringToBuffer(columnIndex, buffer);
         }
 
-        private String fetchNote() {
+        private String fetchAlias() {
             int rawContactId = getInt(CONTACT_ID_INDEX);
-            return noteContacts.get(rawContactId, null);
+            return contactsAliases.get(rawContactId, null);
         }
 
         @Override
@@ -133,7 +133,7 @@ public class RecipientsAdapter extends ResourceCursorAdapter {
         @Override
         public String getString(int columnIndex) {
             if (columnIndex == getColumnCount() - 1)
-                return note;
+                return keyAlias;
             return super.getString(columnIndex);
         }
 
@@ -163,13 +163,13 @@ public class RecipientsAdapter extends ResourceCursorAdapter {
 
         @Override
         public boolean moveToFirst() {
-            note = null;
+            keyAlias = null;
 
             boolean status;
-            for (status = super.moveToFirst(); status == true && note == null; status = super
+            for (status = super.moveToFirst(); status == true && keyAlias == null; status = super
                     .moveToNext()) {
-                note = fetchNote();
-                if (note != null)
+                keyAlias = fetchAlias();
+                if (keyAlias != null)
                     break;
             }
 
@@ -183,13 +183,13 @@ public class RecipientsAdapter extends ResourceCursorAdapter {
 
         @Override
         public boolean moveToLast() {
-            note = null;
+            keyAlias = null;
 
             boolean status;
-            for (status = super.moveToLast(); status == true && note == null; status = super
+            for (status = super.moveToLast(); status == true && keyAlias == null; status = super
                     .moveToPrevious()) {
-                note = fetchNote();
-                if (note != null)
+                keyAlias = fetchAlias();
+                if (keyAlias != null)
                     break;
             }
 
@@ -203,13 +203,13 @@ public class RecipientsAdapter extends ResourceCursorAdapter {
 
         @Override
         public boolean moveToNext() {
-            note = null;
+            keyAlias = null;
 
             boolean status;
-            for (status = super.moveToNext(); status == true && note == null; status = super
+            for (status = super.moveToNext(); status == true && keyAlias == null; status = super
                     .moveToNext()) {
-                note = fetchNote();
-                if (note != null)
+                keyAlias = fetchAlias();
+                if (keyAlias != null)
                     break;
             }
 
@@ -233,13 +233,13 @@ public class RecipientsAdapter extends ResourceCursorAdapter {
 
         @Override
         public boolean moveToPrevious() {
-            note = null;
+            keyAlias = null;
 
             boolean status;
             for (status = super.moveToPrevious(); status == true
-                    && note == null; status = super.moveToPrevious()) {
-                note = fetchNote();
-                if (note != null)
+                    && keyAlias == null; status = super.moveToPrevious()) {
+                keyAlias = fetchAlias();
+                if (keyAlias != null)
                     break;
             }
 
@@ -288,7 +288,7 @@ public class RecipientsAdapter extends ResourceCursorAdapter {
 
     private final Context mContext;
 
-    protected final SparseArray<String> noteContacts = new SparseArray<String>();
+    protected final SparseArray<String> contactsAliases = new SparseArray<String>();
 
     public RecipientsAdapter(Context context) {
         // Note that the RecipientsAdapter doesn't support auto-requeries. If we
@@ -304,17 +304,17 @@ public class RecipientsAdapter extends ResourceCursorAdapter {
         mContext = context;
         mContentResolver = context.getContentResolver();
 
-        Cursor noteCursor = mContentResolver.query(Data.CONTENT_URI,
+        Cursor keyCursor = mContentResolver.query(Data.CONTENT_URI,
                 new String[] {
-                        Data.CONTACT_ID, Note.NOTE
-                }, Note.MIMETYPE + "='"
-                        + Note.CONTENT_ITEM_TYPE + "'",
+                        Data.CONTACT_ID, Data.DATA1
+                }, Data.MIMETYPE + "='" + CryptCompose.MIMETYPE + "' AND "
+                        + Data.DATA2 + " = '" + CryptCompose.USAGE_TYPE + "'",
                 null, null);
-        if (noteCursor != null)
-            while (noteCursor.moveToNext()) {
-                String note = noteCursor.getString(1);
-                if (!TextUtils.isEmpty(note))
-                    noteContacts.put(noteCursor.getInt(0), note);
+        if (keyCursor != null)
+            while (keyCursor.moveToNext()) {
+                String keyAlias = keyCursor.getString(1);
+                if (!TextUtils.isEmpty(keyAlias))
+                    contactsAliases.put(keyCursor.getInt(0), keyAlias);
             }
     }
 
@@ -338,6 +338,9 @@ public class RecipientsAdapter extends ResourceCursorAdapter {
             label.setText(labelText);
             label.setVisibility(View.VISIBLE);
         }
+        
+        TextView alias = (TextView) view.findViewById(R.id.alias);
+        alias.setText(cursor.getString(PROJECTION_PHONE.length));
 
         TextView number = (TextView) view.findViewById(R.id.number);
         number.setText(PhoneNumberUtils.formatNumber(cursor
@@ -358,6 +361,9 @@ public class RecipientsAdapter extends ResourceCursorAdapter {
         String label = cursor.getString(RecipientsAdapter.LABEL_INDEX);
         CharSequence displayLabel = Phone.getTypeLabel(mContext.getResources(),
                 type, label);
+        
+        String alias = cursor.getString(PROJECTION_PHONE.length);
+        
 
         if (name == null) {
             name = "";
@@ -395,6 +401,8 @@ public class RecipientsAdapter extends ResourceCursorAdapter {
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         out.setSpan(new Annotation("number", number), 0, len,
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        out.setSpan(new Annotation("alias", alias), 0, len,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
         return out;
     }
@@ -407,6 +415,11 @@ public class RecipientsAdapter extends ResourceCursorAdapter {
     public String getContactNumber(int position) {
         Cursor c = (Cursor) getItem(position);
         return c.getString(NUMBER_INDEX);
+    }
+
+    public String getContactAlias(int position) {
+        Cursor c = (Cursor) getItem(position);
+        return c.getString(PROJECTION_PHONE.length);
     }
 
     @Override

@@ -40,49 +40,18 @@ public class CryptCompose extends Activity {
     static final String MESSAGE_SENT_ACTION = "de.pentabarf.cryptmessaging.MESSAGE_SENT";
 
     static final String MESSAGE_STATUS_RECEIVED_ACTION = "de.pentabarf.cryptmessaging.MESSAGE_STATUS_RECEIVED";
+    public static final String MIMETYPE = "vnd.android.cursor.item/key";
 
     private static final String TAG = "CryptCompose";
+
+    public static final String USAGE_TYPE = "sms-symmetric";
+
     protected CharSequence[] aliasItems = null;
-    protected String contactId = null;
     protected String contactNumber = null;
+    protected String contactAlias = null;
 
     protected CharSequence encryptedMessage;
     protected CharSequence message;
-    protected String selectedAlias;
-
-    protected int selectedItem = -1;
-
-    protected CharSequence[] getContactAliases() {
-        ArrayList<String> list = new ArrayList<String>(3);
-
-        // Iterate through all aliases of a contact
-        Cursor c = getContentResolver().query(
-                ContactsContract.Data.CONTENT_URI,
-                new String[] {
-                        ContactsContract.Data.DATA1, ContactsContract.Data.DATA2
-                },
-                ContactsContract.Data.MIMETYPE + " = 'vnd.android.cursor.item/key' AND "
-                        + ContactsContract.Data.CONTACT_ID + " = ?",
-                new String[] {
-                    CryptCompose.this.contactId
-                // _ID aus RawContacts die auf den Kontakt zutrifft
-                },
-                ContactsContract.Data.DATA1 + " ASC");
-
-        try {
-            while (c.moveToNext()) {
-                String alias = c.getString(c.getColumnIndex(ContactsContract.Data.DATA1));
-                String type = c.getString(c.getColumnIndex(ContactsContract.Data.DATA2));
-                Log.d(TAG, "alias: " + alias);
-                Log.d(TAG, "type:" + type);
-                list.add(alias);
-            }
-        } finally {
-            c.close();
-        }
-
-        return list.toArray(new CharSequence[list.size()]);
-    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -103,7 +72,7 @@ public class CryptCompose extends Activity {
                         IvParameterSpec ivSpec = new IvParameterSpec(iv);
 
                         return CryptOracle.encryptData(CryptCompose.this,
-                                selectedAlias, "AES",
+                                contactAlias, "AES",
                                 "CBC/PKCS7PADDING", params[0].getBytes(), ivSpec);
                     } catch (Exception e) {
                         Log.e(TAG, "error while encrypting data:", e);
@@ -145,8 +114,6 @@ public class CryptCompose extends Activity {
         AutoCompleteTextView tv = (AutoCompleteTextView) findViewById(R.id.contacts);
         // clear selected number on text change (we only want autocompleted
         // contacts)
-        // XXX this UI would be better if we had a picker that would only allow
-        // us to select contacts with assigned keys and phone numbers
         tv.addTextChangedListener(new TextWatcher() {
 
             @Override
@@ -157,6 +124,7 @@ public class CryptCompose extends Activity {
             public void beforeTextChanged(CharSequence s, int start, int count,
                     int after) {
                 contactNumber = null;
+                contactAlias = null;
             }
 
             @Override
@@ -171,7 +139,7 @@ public class CryptCompose extends Activity {
             public void onItemClick(AdapterView<?> arg0, View arg1, int arg2,
                     long arg3) {
                 contactNumber = adapter.getContactNumber(arg2);
-                contactId = adapter.getContactId(arg2);
+                contactAlias = adapter.getContactAlias(arg2);
             }
         });
 
@@ -246,6 +214,7 @@ public class CryptCompose extends Activity {
         // actual send message
         sms.sendMultipartTextMessage(contactNumber, null, message, sentIntents,
                 deliveryIntents);
+        finish();
     }
 
     private void sendMessage() {
@@ -257,85 +226,10 @@ public class CryptCompose extends Activity {
             return;
 
         message = body;
-
-        // Prepare the Alias selection dialog
-        aliasItems = getContactAliases();
-        selectedItem = -1;
-
-        AlertDialog.Builder alert = new AlertDialog.Builder(this);
-        alert.setTitle("Provide Key alias");
-        alert.setSingleChoiceItems(aliasItems, selectedItem, new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int item) {
-                Log.d(TAG, "Selected index:" + item);
-                selectedItem = item;
-            }
-        });
-
-        alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int whichButton) {
-                if (selectedItem < 0)
-                    return;
-
-                selectedAlias = aliasItems[selectedItem].toString();
-
-                Log.d(TAG, "alias:" + selectedAlias);
-
-                if (selectedAlias == null)
-                    return;
-
-                Intent i = CryptOracle.createCheckAccessIntent(CryptCompose.this, selectedAlias,
-                        CryptOracle.UsageType.SECRET);
-                startActivityForResult(i, ENCRYPT_ACTION);
-            }
-        });
-        alert.setNeutralButton("Set other alias", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                AlertDialog.Builder alert = new AlertDialog.Builder(CryptCompose.this);
-                alert.setTitle("Provide Key alias");
-                alert.setMessage("Please provide the key alias with which the message should be encrypted.");
-                // Set an EditText view to get user input
-                final EditText input = new EditText(CryptCompose.this);
-                alert.setView(input);
-
-                alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int whichButton) {
-                        String response = ((TextView) input).getText().toString();
-                        selectedAlias = response;
-
-                        if (response == null)
-                            return;
-
-                        Intent i = CryptOracle.createCheckAccessIntent(CryptCompose.this, response,
-                                CryptOracle.UsageType.SECRET);
-                        startActivityForResult(i, ENCRYPT_ACTION);
-                    }
-                });
-                alert.setNegativeButton("Cancel",
-                        new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int whichButton) {
-                                selectedAlias = null;
-                            }
-                        });
-
-                AlertDialog ad = alert.create();
-                ad.show();
-            }
-        });
-        alert.setNegativeButton("Cancel",
-                new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int whichButton) {
-                        selectedAlias = null;
-                    }
-                });
-
-        AlertDialog ad = alert.create();
-        ad.show();
+        
+        Intent i = CryptOracle.createCheckAccessIntent(CryptCompose.this, contactAlias,
+                CryptOracle.UsageType.SECRET);
+        startActivityForResult(i, ENCRYPT_ACTION);
     }
 
 }
