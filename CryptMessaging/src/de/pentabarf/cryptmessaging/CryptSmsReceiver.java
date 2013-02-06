@@ -132,15 +132,20 @@ public class CryptSmsReceiver extends BroadcastReceiver {
 
         // retrieve contact's key
         Cursor keyCursor = ctx.getContentResolver().query(ContactsContract.Data.CONTENT_URI,
-                new String[] { Data.DATA1 },  // the columns in the result
-                Data.MIMETYPE + " = '" + CryptCompose.MIMETYPE + "' AND " + Data.DATA2 + " = '" + CryptCompose.USAGE_TYPE + "' AND " + Data.CONTACT_ID + " = ?", // the filter
-                new String[]{contactId}, null);
-        
+                new String[] {
+                    Data.DATA1
+                }, // the columns in the result
+                Data.MIMETYPE + " = '" + CryptCompose.MIMETYPE + "' AND " + Data.DATA2 + " = '"
+                        + CryptCompose.USAGE_TYPE + "' AND " + Data.CONTACT_ID + " = ?",
+                new String[] {
+                    contactId
+                }, null);
+
         if (keyCursor != null) {
-        	Log.w(TAG, "contact " + displayName + " has no key assigned");
-        	return null;
+            Log.w(TAG, "contact " + displayName + " has no key assigned");
+            return null;
         }
-        
+
         return displayName;
     }
 
@@ -183,8 +188,8 @@ public class CryptSmsReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-    	Log.w(TAG, "Intent received: " + intent.getAction());
-    	Toast.makeText(context, "CipherSMS received", Toast.LENGTH_SHORT).show();
+        Log.w(TAG, "Intent received: " + intent.getAction());
+        Toast.makeText(context, "CipherSMS received", Toast.LENGTH_SHORT).show();
         if (ACTION.equals(intent.getAction())) {
             Bundle bundle = intent.getExtras();
             if (bundle == null)
