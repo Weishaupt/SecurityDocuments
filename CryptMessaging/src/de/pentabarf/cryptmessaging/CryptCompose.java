@@ -31,6 +31,7 @@ import javax.crypto.spec.IvParameterSpec;
 @SuppressWarnings("static-access")
 public class CryptCompose extends Activity {
 
+    static final int IV_SIZE = 16;
     private static final int ENCRYPT_ACTION = 2;
     static final String MESSAGE_SENT_ACTION = "de.pentabarf.cryptmessaging.MESSAGE_SENT";
 
@@ -62,13 +63,17 @@ public class CryptCompose extends Activity {
                     Log.d(TAG, msg);
                     try {
                         SecureRandom rng = SecureRandom.getInstance("SHA1PRNG");
-                        byte[] iv = new byte[16];
+                        byte[] iv = new byte[IV_SIZE];
                         rng.nextBytes(iv);
                         IvParameterSpec ivSpec = new IvParameterSpec(iv);
 
-                        return CryptOracle.encryptData(CryptCompose.this,
-                                contactAlias, "AES",
-                                "CBC/PKCS7PADDING", params[0].getBytes(), ivSpec);
+                        byte[] ciphertext = CryptOracle.encryptData(CryptCompose.this,
+                                contactAlias, "AES", "CBC/PKCS7PADDING", params[0].getBytes(),
+                                ivSpec);
+                        byte[] ivCiphertext = new byte[ciphertext.length + IV_SIZE];
+                        System.arraycopy(iv, 0, ivCiphertext, 0, IV_SIZE);
+                        System.arraycopy(ciphertext, 0, ivCiphertext, IV_SIZE, ciphertext.length);
+                        return ivCiphertext;
                     } catch (Exception e) {
                         Log.e(TAG, "error while encrypting data:", e);
                         return null;
@@ -173,7 +178,7 @@ public class CryptCompose extends Activity {
                 .addMessageToUri(getContentResolver(),
                         Uri.parse("content://sms/queued"),
                         contactNumber /* recipient */,
-                        encMessage /* message */,
+                        normMessage /* message */,
                         null /* subjcet */,
                         System.currentTimeMillis() /* date */, true /* read */,
                         true /* deliveryReport */);
@@ -221,7 +226,7 @@ public class CryptCompose extends Activity {
             return;
 
         message = body;
-        
+
         Intent i = CryptOracle.createCheckAccessIntent(CryptCompose.this, contactAlias,
                 CryptOracle.UsageType.SECRET);
         startActivityForResult(i, ENCRYPT_ACTION);

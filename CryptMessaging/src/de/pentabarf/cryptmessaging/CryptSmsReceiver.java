@@ -1,31 +1,24 @@
 
 package de.pentabarf.cryptmessaging;
 
-import android.app.Notification;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
-import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.Data;
 import android.telephony.SmsMessage;
-import android.text.SpannableString;
-import android.text.SpannableStringBuilder;
-import android.text.Spanned;
-import android.text.TextUtils;
-import android.text.style.StyleSpan;
-import android.text.style.TextAppearanceSpan;
+import android.util.Base64;
 import android.util.Log;
 import android.widget.Toast;
 
 public class CryptSmsReceiver extends BroadcastReceiver {
-    private static class ContactInfo {
+    static class ContactInfo implements Parcelable {
         private final String keyAlias;
         private final String name;
 
@@ -41,65 +34,42 @@ public class CryptSmsReceiver extends BroadcastReceiver {
         public String getName() {
             return name;
         }
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel dest, int flags) {
+            dest.writeString(name);
+            dest.writeString(keyAlias);
+        }
+        
+        public static final Parcelable.Creator<ContactInfo> CREATOR = new Creator<CryptSmsReceiver.ContactInfo>() {
+            
+            @Override
+            public ContactInfo[] newArray(int size) {
+                return new ContactInfo[size];
+            }
+            
+            @Override
+            public ContactInfo createFromParcel(Parcel source) {
+                return new ContactInfo(source.readString(), source.readString());
+            }
+        };
     }
 
     static final String ACTION = "android.provider.Telephony.SMS_RECEIVED";
-    static final String ENCODED_MESSAGE_PREFIX = "@";
+    static final char ENCODED_MESSAGE_PREFIX = '@';
+    static final char ENCODED_MESSAGE_SUFFIX = '@';
 
-    private static final int NOTIFICATION_ID = 123;
     private static final String SMS_EXTRA_NAME = "pdus";
     private static final String TAG = "CryptSmsReceiver";
-
-    /*
-     * build notification ticker message for sms based on
-     * com.android.mms.transaction.MessagingNotification
-     */
-    private static CharSequence buildTickerMessage(String displayAddress, String subject,
-            String body) {
-        StringBuilder buf = new StringBuilder(displayAddress == null ? "" : displayAddress.replace(
-                '\n', ' ').replace('\r', ' '));
-
-        int offset = buf.length();
-        if (!TextUtils.isEmpty(subject) || !TextUtils.isEmpty(body))
-            buf.append(':').append(' ');
-        if (!TextUtils.isEmpty(subject)) {
-            subject = subject.replace('\n', ' ').replace('\r', ' ');
-            buf.append(subject);
-            buf.append(' ');
-        }
-
-        if (!TextUtils.isEmpty(body)) {
-            body = body.replace('\n', ' ').replace('\r', ' ');
-            buf.append(body);
-        }
-
-        SpannableString spanText = new SpannableString(buf.toString());
-        spanText.setSpan(new StyleSpan(Typeface.BOLD), 0, offset, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-
-        return spanText;
-    }
-
-    /*
-     * format a message for BigText notifications based on
-     * com.android.mms.transaction.MessagingNotification
-     */
-    public static CharSequence formatBigMessage(Context context, String mMessage, String mSubject) {
-        final TextAppearanceSpan notificationSubjectSpan = new TextAppearanceSpan(context,
-                R.style.NotificationPrimaryText);
-
-        SpannableStringBuilder spannableStringBuilder = new SpannableStringBuilder();
-        if (!TextUtils.isEmpty(mSubject)) {
-            spannableStringBuilder.append(mSubject);
-            spannableStringBuilder.setSpan(notificationSubjectSpan, 0, mSubject.length(), 0);
-        }
-        if (mMessage != null) {
-            if (spannableStringBuilder.length() > 0) {
-                spannableStringBuilder.append('\n');
-            }
-            spannableStringBuilder.append(mMessage);
-        }
-        return spannableStringBuilder;
-    }
+    static final String EXTRA_IV = "iv";
+    static final String EXTRA_CIPHERTEXT = "ciphertext";
+    static final String EXTRA_CONTACT = "contact";
+    static final String EXTRA_STORE = "storevalues";
 
     /**
      * retrieve contact for phone number, check if contact has key assigned.
@@ -170,7 +140,7 @@ public class CryptSmsReceiver extends BroadcastReceiver {
      * @param pdus unparsed message fragments
      * @return assembled message body
      */
-    private static String restoreMessage(Context ctx, String keyAlias, SmsMessage msg, Object[] pdus) {
+    private static boolean restoreMessage(Context ctx, ContactInfo contact, SmsMessage msg, Object[] pdus) {
         ContentValues values = new ContentValues();
         values.put("address", msg.getDisplayOriginatingAddress());
         values.put("date", System.currentTimeMillis());
@@ -181,24 +151,42 @@ public class CryptSmsReceiver extends BroadcastReceiver {
         }
         values.put("reply_path_present", msg.isReplyPathPresent() ? 1 : 0);
         values.put("service_center", msg.getServiceCenterAddress());
-
+        
         StringBuilder body = new StringBuilder();
+        Log.i(TAG, "got " + pdus.length + " pdus from " + contact.getName());
         for (Object pdu : pdus) {
             body.append(SmsMessage.createFromPdu((byte[]) pdu).getDisplayMessageBody());
         }
-        // TODO decrypt body
-
-        values.put("body", body.toString());
-
-        ctx.getContentResolver().insert(Uri.parse("content://sms/inbox"), values);
-
-        return body.toString();
+        
+        int endIdx = body.length()-1;
+        
+        if (body.charAt(0) != ENCODED_MESSAGE_PREFIX || body.charAt(endIdx) != ENCODED_MESSAGE_SUFFIX)
+            return false;
+        
+        byte[] ivCiphertext = Base64.decode(body.substring(1, endIdx), Base64.NO_WRAP);
+        if (ivCiphertext.length < CryptCompose.IV_SIZE)
+            return false;
+        
+        byte[] ciphertext = new byte[ivCiphertext.length - CryptCompose.IV_SIZE];
+        byte[] iv = new byte[CryptCompose.IV_SIZE];
+        System.arraycopy(ivCiphertext, 0, iv, 0, CryptCompose.IV_SIZE);
+        System.arraycopy(ivCiphertext, CryptCompose.IV_SIZE, ciphertext, 0, ivCiphertext.length - CryptCompose.IV_SIZE);
+        
+        Intent i = new Intent(ctx, SmsDecryptorActivity.class);
+        i.putExtra(EXTRA_IV, iv);
+        i.putExtra(EXTRA_CIPHERTEXT, ciphertext);
+        i.putExtra(EXTRA_CONTACT, contact);
+        i.putExtra(EXTRA_STORE, values);
+        i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+        
+        ctx.startActivity(i);
+        
+        return true;
     }
 
     @Override
     public void onReceive(Context context, Intent intent) {
         Log.w(TAG, "Intent received: " + intent.getAction());
-        Toast.makeText(context, "CipherSMS received", Toast.LENGTH_SHORT).show();
         if (ACTION.equals(intent.getAction())) {
             Bundle bundle = intent.getExtras();
             if (bundle == null)
@@ -219,50 +207,12 @@ public class CryptSmsReceiver extends BroadcastReceiver {
             if (contact != null) {
 
                 // check for encrypted message
-                String text = msg.getDisplayMessageBody();
-                if (text.startsWith(ENCODED_MESSAGE_PREFIX)
-                        && text.endsWith(ENCODED_MESSAGE_PREFIX) && text.length() > 2) {
+                if (restoreMessage(context, contact, msg, pdus)) {
+                    Toast.makeText(context, "CipherSMS received", Toast.LENGTH_SHORT).show();
 
                     // message is encrypted and the sender is a known crypto
                     // contact, don't handle as normal message
                     abortBroadcast();
-
-                    // assemble, decrypt and store message
-                    String body = restoreMessage(context, contact.getKeyAlias(), msg, pdus);
-
-                    // collect notification info
-                    String subject = msg.getPseudoSubject();
-                    CharSequence formatted = formatBigMessage(context, body,
-                            subject);
-
-                    Intent contentIntent = new Intent(Intent.ACTION_VIEW,
-                            Uri.fromParts("sms", msg.getDisplayOriginatingAddress(), null));
-
-                    contentIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-                    // based on
-                    // com.android.mms.transaction.MessagingNotification
-                    // prepare notification
-                    Notification.Builder builder = new Notification.Builder(context);
-                    builder.setTicker(buildTickerMessage(contact.getName(), subject,
-                            msg.getDisplayMessageBody()));
-                    builder.setContentTitle(buildTickerMessage(contact.getName(), null, null));
-                    builder.setContentIntent(PendingIntent
-                            .getActivity(context, 0, contentIntent, 0));
-                    builder.setSmallIcon(android.R.drawable.stat_notify_chat);
-                    builder.setDefaults(Notification.DEFAULT_ALL);
-                    builder.setPriority(Notification.PRIORITY_DEFAULT);
-                    builder.setContentText(formatted);
-                    builder.setAutoCancel(true);
-                    // TODO avatar
-
-                    Notification notification = new Notification.BigTextStyle(
-                            builder).bigText(formatted).build();
-
-                    // show notification
-                    ((NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE))
-                            .notify(NOTIFICATION_ID, notification);
-
                 }
             }
 

@@ -25,15 +25,17 @@
             </intent-filter>
         </receiver>
 
-        <activity android:name="CryptCompose" >
+        <activity android:name=".CryptCompose" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        
+        <activity android:name=".SmsDecryptorActivity" android:theme="@android:style/Theme.NoDisplay"/>
 
         <receiver
-            android:name="SmsStatusReceiver"
+            android:name=".SmsStatusReceiver"
             android:exported="false" >
             <intent-filter>
                 <action android:name="de.pentabarf.cryptmessaging.MESSAGE_SENT" />
