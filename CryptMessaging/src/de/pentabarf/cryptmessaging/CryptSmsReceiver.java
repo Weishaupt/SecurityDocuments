@@ -26,20 +26,20 @@ import android.widget.Toast;
 
 public class CryptSmsReceiver extends BroadcastReceiver {
     private static class ContactInfo {
-        private final String name;
         private final String keyAlias;
+        private final String name;
 
         public ContactInfo(String name, String keyAlias) {
             this.name = name;
             this.keyAlias = keyAlias;
         }
 
-        public String getName() {
-            return name;
-        }
-
         public String getKeyAlias() {
             return keyAlias;
+        }
+
+        public String getName() {
+            return name;
         }
     }
 
@@ -54,10 +54,10 @@ public class CryptSmsReceiver extends BroadcastReceiver {
      * build notification ticker message for sms based on
      * com.android.mms.transaction.MessagingNotification
      */
-    private static CharSequence buildTickerMessage(String displayAddress,
-            String subject, String body) {
-        StringBuilder buf = new StringBuilder(displayAddress == null ? ""
-                : displayAddress.replace('\n', ' ').replace('\r', ' '));
+    private static CharSequence buildTickerMessage(String displayAddress, String subject,
+            String body) {
+        StringBuilder buf = new StringBuilder(displayAddress == null ? "" : displayAddress.replace(
+                '\n', ' ').replace('\r', ' '));
 
         int offset = buf.length();
         if (!TextUtils.isEmpty(subject) || !TextUtils.isEmpty(body))
@@ -74,8 +74,7 @@ public class CryptSmsReceiver extends BroadcastReceiver {
         }
 
         SpannableString spanText = new SpannableString(buf.toString());
-        spanText.setSpan(new StyleSpan(Typeface.BOLD), 0, offset,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        spanText.setSpan(new StyleSpan(Typeface.BOLD), 0, offset, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
         return spanText;
     }
@@ -84,16 +83,14 @@ public class CryptSmsReceiver extends BroadcastReceiver {
      * format a message for BigText notifications based on
      * com.android.mms.transaction.MessagingNotification
      */
-    public static CharSequence formatBigMessage(Context context,
-            String mMessage, String mSubject) {
-        final TextAppearanceSpan notificationSubjectSpan = new TextAppearanceSpan(
-                context, R.style.NotificationPrimaryText);
+    public static CharSequence formatBigMessage(Context context, String mMessage, String mSubject) {
+        final TextAppearanceSpan notificationSubjectSpan = new TextAppearanceSpan(context,
+                R.style.NotificationPrimaryText);
 
         SpannableStringBuilder spannableStringBuilder = new SpannableStringBuilder();
         if (!TextUtils.isEmpty(mSubject)) {
             spannableStringBuilder.append(mSubject);
-            spannableStringBuilder.setSpan(notificationSubjectSpan, 0,
-                    mSubject.length(), 0);
+            spannableStringBuilder.setSpan(notificationSubjectSpan, 0, mSubject.length(), 0);
         }
         if (mMessage != null) {
             if (spannableStringBuilder.length() > 0) {
@@ -118,13 +115,9 @@ public class CryptSmsReceiver extends BroadcastReceiver {
                 Uri.encode(address));
 
         // find contact
-        Cursor c = ctx.getContentResolver().query(
-                uri,
-                new String[] {
-                        ContactsContract.Contacts.LOOKUP_KEY,
-                        ContactsContract.Contacts.DISPLAY_NAME
-                }, null, null,
-                null);
+        Cursor c = ctx.getContentResolver().query(uri, new String[] {
+                ContactsContract.Contacts.LOOKUP_KEY, ContactsContract.Contacts.DISPLAY_NAME
+        }, null, null, null);
 
         String displayName = address;
         String contactId = null;
@@ -148,10 +141,11 @@ public class CryptSmsReceiver extends BroadcastReceiver {
         Log.w(TAG, "sent by " + displayName);
 
         // retrieve contact's key
-        Cursor keyCursor = ctx.getContentResolver().query(ContactsContract.Data.CONTENT_URI,
+        Cursor keyCursor = ctx.getContentResolver().query(
+                ContactsContract.Data.CONTENT_URI,
                 new String[] {
                     Data.DATA1
-                }, // the columns in the result
+                },
                 Data.MIMETYPE + " = '" + CryptCompose.MIMETYPE + "' AND " + Data.DATA2 + " = '"
                         + CryptCompose.USAGE_TYPE + "' AND " + Data.LOOKUP_KEY + " = ?",
                 new String[] {
@@ -176,8 +170,7 @@ public class CryptSmsReceiver extends BroadcastReceiver {
      * @param pdus unparsed message fragments
      * @return assembled message body
      */
-    private static String restoreMessage(Context ctx, String keyAlias, SmsMessage msg,
-            Object[] pdus) {
+    private static String restoreMessage(Context ctx, String keyAlias, SmsMessage msg, Object[] pdus) {
         ContentValues values = new ContentValues();
         values.put("address", msg.getDisplayOriginatingAddress());
         values.put("date", System.currentTimeMillis());
@@ -191,15 +184,13 @@ public class CryptSmsReceiver extends BroadcastReceiver {
 
         StringBuilder body = new StringBuilder();
         for (Object pdu : pdus) {
-            body.append(SmsMessage.createFromPdu((byte[]) pdu)
-                    .getDisplayMessageBody());
+            body.append(SmsMessage.createFromPdu((byte[]) pdu).getDisplayMessageBody());
         }
         // TODO decrypt body
 
         values.put("body", body.toString());
 
-        ctx.getContentResolver().insert(Uri.parse("content://sms/inbox"),
-                values);
+        ctx.getContentResolver().insert(Uri.parse("content://sms/inbox"), values);
 
         return body.toString();
     }
@@ -245,8 +236,7 @@ public class CryptSmsReceiver extends BroadcastReceiver {
                             subject);
 
                     Intent contentIntent = new Intent(Intent.ACTION_VIEW,
-                            Uri.fromParts("sms",
-                                    msg.getDisplayOriginatingAddress(), null));
+                            Uri.fromParts("sms", msg.getDisplayOriginatingAddress(), null));
 
                     contentIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
@@ -256,10 +246,9 @@ public class CryptSmsReceiver extends BroadcastReceiver {
                     Notification.Builder builder = new Notification.Builder(context);
                     builder.setTicker(buildTickerMessage(contact.getName(), subject,
                             msg.getDisplayMessageBody()));
-                    builder.setContentTitle(buildTickerMessage(contact.getName(), null,
-                            null));
-                    builder.setContentIntent(PendingIntent.getActivity(context, 0,
-                            contentIntent, 0));
+                    builder.setContentTitle(buildTickerMessage(contact.getName(), null, null));
+                    builder.setContentIntent(PendingIntent
+                            .getActivity(context, 0, contentIntent, 0));
                     builder.setSmallIcon(android.R.drawable.stat_notify_chat);
                     builder.setDefaults(Notification.DEFAULT_ALL);
                     builder.setPriority(Notification.PRIORITY_DEFAULT);
@@ -271,8 +260,7 @@ public class CryptSmsReceiver extends BroadcastReceiver {
                             builder).bigText(formatted).build();
 
                     // show notification
-                    ((NotificationManager) context
-                            .getSystemService(Context.NOTIFICATION_SERVICE))
+                    ((NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE))
                             .notify(NOTIFICATION_ID, notification);
 
                 }
