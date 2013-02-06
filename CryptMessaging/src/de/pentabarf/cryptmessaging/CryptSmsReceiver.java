@@ -25,6 +25,23 @@ import android.util.Log;
 import android.widget.Toast;
 
 public class CryptSmsReceiver extends BroadcastReceiver {
+    private static class ContactInfo {
+        private final String name;
+        private final String keyAlias;
+
+        public ContactInfo(String name, String keyAlias) {
+            this.name = name;
+            this.keyAlias = keyAlias;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public String getKeyAlias() {
+            return keyAlias;
+        }
+    }
 
     static final String ACTION = "android.provider.Telephony.SMS_RECEIVED";
     static final String ENCODED_MESSAGE_PREFIX = "@";
@@ -94,7 +111,7 @@ public class CryptSmsReceiver extends BroadcastReceiver {
      * @param address phone number used to look up contact
      * @return contact's display name if he has a key assigned, null otherwise
      */
-    private static String lookupContact(Context ctx, String address) {
+    private static ContactInfo lookupContact(Context ctx, String address) {
         // prepare lookup URI
         Uri uri = Uri.withAppendedPath(
                 ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
@@ -136,17 +153,18 @@ public class CryptSmsReceiver extends BroadcastReceiver {
                     Data.DATA1
                 }, // the columns in the result
                 Data.MIMETYPE + " = '" + CryptCompose.MIMETYPE + "' AND " + Data.DATA2 + " = '"
-                        + CryptCompose.USAGE_TYPE + "' AND " + Data.CONTACT_ID + " = ?",
+                        + CryptCompose.USAGE_TYPE + "' AND " + Data.LOOKUP_KEY + " = ?",
                 new String[] {
                     contactId
                 }, null);
 
-        if (keyCursor != null) {
-            Log.w(TAG, "contact " + displayName + " has no key assigned");
-            return null;
+        if (keyCursor != null && keyCursor.moveToFirst()) {
+            Log.w(TAG, "contact " + displayName + " has key=" + keyCursor.getString(0));
+            return new ContactInfo(displayName, keyCursor.getString(0));
         }
 
-        return displayName;
+        Log.w(TAG, "contact " + displayName + " (" + contactId + ") has no key assigned");
+        return null;
     }
 
     /**
@@ -158,7 +176,7 @@ public class CryptSmsReceiver extends BroadcastReceiver {
      * @param pdus unparsed message fragments
      * @return assembled message body
      */
-    private static String restoreMessage(Context ctx, SmsMessage msg,
+    private static String restoreMessage(Context ctx, String keyAlias, SmsMessage msg,
             Object[] pdus) {
         ContentValues values = new ContentValues();
         values.put("address", msg.getDisplayOriginatingAddress());
@@ -205,9 +223,9 @@ public class CryptSmsReceiver extends BroadcastReceiver {
             String source = msg.getDisplayOriginatingAddress();
 
             // retrieve contact info / check key assignment
-            String contactTitle = lookupContact(context, source);
+            ContactInfo contact = lookupContact(context, source);
 
-            if (contactTitle != null) {
+            if (contact != null) {
 
                 // check for encrypted message
                 String text = msg.getDisplayMessageBody();
@@ -219,7 +237,7 @@ public class CryptSmsReceiver extends BroadcastReceiver {
                     abortBroadcast();
 
                     // assemble, decrypt and store message
-                    String body = restoreMessage(context, msg, pdus);
+                    String body = restoreMessage(context, contact.getKeyAlias(), msg, pdus);
 
                     // collect notification info
                     String subject = msg.getPseudoSubject();
@@ -236,9 +254,9 @@ public class CryptSmsReceiver extends BroadcastReceiver {
                     // com.android.mms.transaction.MessagingNotification
                     // prepare notification
                     Notification.Builder builder = new Notification.Builder(context);
-                    builder.setTicker(buildTickerMessage(contactTitle, subject,
+                    builder.setTicker(buildTickerMessage(contact.getName(), subject,
                             msg.getDisplayMessageBody()));
-                    builder.setContentTitle(buildTickerMessage(contactTitle, null,
+                    builder.setContentTitle(buildTickerMessage(contact.getName(), null,
                             null));
                     builder.setContentIntent(PendingIntent.getActivity(context, 0,
                             contentIntent, 0));
