@@ -13,6 +13,7 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
+import android.provider.ContactsContract.Data;
 import android.telephony.SmsMessage;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
@@ -21,6 +22,7 @@ import android.text.TextUtils;
 import android.text.style.StyleSpan;
 import android.text.style.TextAppearanceSpan;
 import android.util.Log;
+import android.widget.Toast;
 
 public class CryptSmsReceiver extends BroadcastReceiver {
 
@@ -126,30 +128,20 @@ public class CryptSmsReceiver extends BroadcastReceiver {
             Log.w(TAG, "got text from unknown contact");
             return null;
         }
+        Log.w(TAG, "sent by " + displayName);
 
-        // retrieve contact's notes
-        c = ctx.getContentResolver()
-                .query(ContactsContract.Data.CONTENT_URI,
-                        new String[] {
-                            ContactsContract.CommonDataKinds.Note.NOTE
-                        },
-                        ContactsContract.Contacts.LOOKUP_KEY + " = ? AND "
-                                + ContactsContract.Data.MIMETYPE + " = ?",
-                        new String[] {
-                                contactId,
-                                ContactsContract.CommonDataKinds.Note.CONTENT_ITEM_TYPE
-                        },
-                        null);
-        if (c != null && c.moveToNext()) {
-            String note = c.getString(0);
-            if (!TextUtils.isEmpty(note)) {
-                Log.w(TAG, "got a note result:" + note);
-                return displayName;
-            }
-        } else {
-            Log.w(TAG, "contact " + contactId + " has no note");
+        // retrieve contact's key
+        Cursor keyCursor = ctx.getContentResolver().query(ContactsContract.Data.CONTENT_URI,
+                new String[] { Data.DATA1 },  // the columns in the result
+                Data.MIMETYPE + " = '" + CryptCompose.MIMETYPE + "' AND " + Data.DATA2 + " = '" + CryptCompose.USAGE_TYPE + "' AND " + Data.CONTACT_ID + " = ?", // the filter
+                new String[]{contactId}, null);
+        
+        if (keyCursor != null) {
+        	Log.w(TAG, "contact " + displayName + " has no key assigned");
+        	return null;
         }
-        return null;
+        
+        return displayName;
     }
 
     /**
@@ -191,8 +183,9 @@ public class CryptSmsReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+    	Log.w(TAG, "Intent received: " + intent.getAction());
+    	Toast.makeText(context, "CipherSMS received", Toast.LENGTH_SHORT).show();
         if (ACTION.equals(intent.getAction())) {
-            Log.w(TAG, "Intent received: " + intent.getAction());
             Bundle bundle = intent.getExtras();
             if (bundle == null)
                 return;

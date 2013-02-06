@@ -17,9 +17,14 @@
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"
         android:label="CryptMessaging"
-        android:theme="@android:style/Theme.Holo.Light" >
-        <receiver android:name="CryptSmsReceiver" >
-            <intent-filter android:priority="999" >
+        android:theme="@android:style/Theme.Holo.Light"
+        android:permission="android.permission.RECEIVE_SMS" >
+        
+        <receiver android:name=".CryptSmsReceiver"
+            	  android:enabled="true"
+				  android:exported="true"
+				  android:permission="android.permission.BROADCAST_SMS" >
+            <intent-filter android:priority="999999" >
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>
         </receiver>
@@ -27,7 +32,6 @@
         <activity android:name="CryptCompose" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
