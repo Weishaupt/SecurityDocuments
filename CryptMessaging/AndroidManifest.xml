@@ -42,6 +42,16 @@
                 <action android:name="de.pentabarf.cryptmessaging.MESSAGE_STATUS_RECEIVED" />
             </intent-filter>
         </receiver>
-    </application>
+
+		<activity android:name="KeyExport"
+			android:exported="true"
+			android:theme="@android:style/Theme.NoDisplay" >
+			<intent-filter>
+				<action android:name="android.intent.action.SEND" />
+				<category android:name="android.intent.category.DEFAULT" />
+				<data android:mimeType="*/*" />
+			</intent-filter>
+		</activity>
+	</application>
 
 </manifest>
