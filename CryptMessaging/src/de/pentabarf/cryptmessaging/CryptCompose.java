@@ -85,7 +85,7 @@ public class CryptCompose extends Activity {
                     Log.d(TAG, "Crypted Result: " + new String(result));
                     String crypt = CryptSmsReceiver.ENCODED_MESSAGE_PREFIX +
                             Base64.encodeToString(result, Base64.NO_WRAP) +
-                            CryptSmsReceiver.ENCODED_MESSAGE_PREFIX;
+                            CryptSmsReceiver.ENCODED_MESSAGE_SUFFIX;
                     pd.dismiss();
                     CryptCompose.this.sendEncryptedMessage(crypt, msg);
                 }
