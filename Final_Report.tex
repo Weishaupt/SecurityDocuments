@@ -80,60 +80,32 @@
 		\end{description}
 
 	\subsection*{Detour: Java Cryptography Architecture}
-		The JCA is a {\em provider framework} for common cryptography operations such as hashing, sign/verify,
-		encrypt/decrypt and key/certificate generation. Each of these operations have an algorithm- and
-		implementation-independent interface, most of which operates on objects implementing the
-		\path{javax.crypto.SecretKey}, \path{java.security.PublicKey} or \path{java.security.PrivateKey}
-		interfaces, depending on the context.
+		The JCA is a {\em provider framework} for common cryptography operations such as hashing, sign/verify, encrypt/decrypt and key/certificate generation. Each of these operations have an algorithm- and	implementation-independent interface, most of which operates on objects implementing the \path{javax.crypto.SecretKey}, \path{java.security.PublicKey} or \path{java.security.PrivateKey} interfaces, depending on the context.
 
-		This makes it possible for crypto code to be written largely independent on actual implementation
-		e.g. of the keys.
+		This makes it possible for crypto code to be written largely independent on actual implementation e.g. of the keys.
 
 	\section{Requirements}
-		To achieve our goal, we need to be able to securely store and generate both symmetric and asymmetric
-		keys, regardless of the key type.
+		To achieve our goal, we need to be able to securely store and generate both symmetric and asymmetric keys, regardless of the key type.
 
-		Apps should be able to do crypto operations with specific keys, access to which should require the user
-		to give her permission. For private keys, these operations include decryption and signing of data, while
-		for public keys it's encryption and verification. With symmetric keys, apps need to be able to both
-		encrypt and decrypt, as well as sign and verify (which means generating and checking {\em message
-		authentication codes} in this case).
+		Apps should be able to do crypto operations with specific keys, access to which should require the user	to give her permission. For private keys, these operations include decryption and signing of data, while for public keys it's encryption and verification. With symmetric keys, apps need to be able to both encrypt and decrypt, as well as sign and verify (which means generating and checking {\em message authentication codes} in this case).
 
 		These operations must not leak any kind of private key parameter or any part of the symmetric key used.
 
-		For convenience, it would be a good idea to create and store key exchange (eg. Diffie-Hellman) parameters
-		as well, and to automatically derive and store the symmetric key on receiving the remote's parameters.
+		For convenience, it would be a good idea to create and store key exchange (eg. Diffie-Hellman) parameters as well, and to automatically derive and store the symmetric key on receiving the remote's parameters.
 
 	\subsection{Workflow with the existing KeyChain API}
 		In the KeyChain API there is \texttt{AndroidKeyPairGenerator}, \texttt{AndroidKeyStore} and \linebreak \texttt{KeyChain}.
 
-		The \texttt{AndroidKeyPairGenerator} implements JCA's \texttt{KeyPairGenerator} interface and sends a request
-		to generate a key to the {\em keystore} daemon. This way, the keys' types are hard coded to {\em 2048 bit RSA}.
+		The \texttt{AndroidKeyPairGenerator} implements JCA's \texttt{KeyPairGenerator} interface and sends a request to generate a key to the {\em keystore} daemon. This way, the keys' types are hard coded to {\em 2048 bit RSA}. The \texttt{AndroidKeyStore} implements the \texttt{KeyStore} interface. It retrieves the key references from the daemon, but does no permission checking. If the requesting app has never been granted to access the requested key, the access simply fails. It supports only asymmetric keys as well.
+		Key references means that the returned key objects don't carry the parameters themselves, but instead they are	handles that the OpenSSL JCA provider can use to run the crypto operations on the keys in the keystore, so the Java code (and specifically, the app's code) never sees any crypto parameters at all. The \texttt{KeyChain} allows to retrieve \texttt{PrivateKey}s using the \texttt{AndroidKeyStore}, but requests permission to access a key beforehand. The user will see a dialog telling him which app tries to access a key, she can choose the one she wants to use and the app gets access to that specific key. 
 		
-		The \texttt{AndroidKeyStore} implements the \texttt{KeyStore} interface. It retrieves the key references from
-		the daemon, but does no permission checking. If the requesting app has never been granted to access the requested
-		key, the access simply fails. It supports only asymmetric keys as well.
-
-		Key references means that the returned key objects don't carry the parameters themselves, but instead they are
-		handles that the OpenSSL JCA provider can use to run the crypto operations on the keys in the keystore, so the
-		Java code (and specifically, the app's code) never sees any crypto parameters at all.
-
-		The \texttt{KeyChain} allows to retrieve \texttt{PrivateKey}s using the \texttt{AndroidKeyStore}, but requests
-		permission to access a key beforehand. The user will see a dialog telling him which app tries to access a key,
-		she can choose the one she wants to use and the app gets access to that specific key.
-
 	\subsection{Proposed Implementation Ideas}
 		\subsubsection{Reuse KeyChain API}
-			Our initial plan was to reuse as much of the KeyChain API as possible. Nevertheless we would need to add support
-			for symmetric keys and other asymmetric key types in both storage and key generation as well as support for key
-			exchange handling.
+			Our initial plan was to reuse as much of the KeyChain API as possible. Nevertheless we would need to add support	for symmetric keys and other asymmetric key types in both storage and key generation as well as support for key	exchange handling.
 
-			This turned out to be harder than we thought, as we would need to rewrite significant amount of C++ code in the
-			\texttt{keystore} daemon for supporting anything else than RSA. Also we would have to rewrite the protocol the
-			\texttt{keystore} uses to communicate with the Java framework.
-
-			And finally, there turns out to be a bug somewhere in Android's OpenSSL engine, which causes {\em dalvik} to
-			{\em segfault} as soon as encryption or decryption is being run with the returned key references.
+			This turned out to be harder than we thought, as we would need to rewrite significant amount of C++ code in the	\texttt{keystore} daemon for supporting anything else than RSA. Also we would have to rewrite the protocol the \texttt{keystore} uses to communicate with the Java framework.
+			
+			And finally, there turns out to be a bug somewhere in Android's OpenSSL engine, which causes {\em dalvik} to	{\em segfault} as soon as encryption or decryption is being run with the returned key references.
 
 		\subsubsection{The manual way}
 			% TODO rewrite to match the above
