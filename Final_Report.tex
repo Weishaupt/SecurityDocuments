@@ -3,7 +3,7 @@
 
 \usepackage[english]{babel} %English 
 %\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}	%utf8 encoding
+\usepackage[utf8]{inputenc} %utf8 encoding
 \usepackage[colorlinks]%, %Anstatt Boxen um Links, diese einfärben
         	{hyperref}		%Anklickbare Links
 
@@ -80,7 +80,7 @@
 		\end{description}
 
 	\subsection*{Detour: Java Cryptography Architecture (JCA)}
-		The JCA is a {\em provider framework} for common cryptography operations such as hashing, sign/verify, encrypt/decrypt and key/certificate generation. Each of these operations have an algorithm- and	implementation-independent interface, most of which operates on objects implementing the \path{javax.crypto.SecretKey}, \path{java.security.PublicKey} or \path{java.security.PrivateKey} interfaces, depending on the context.
+		The JCA is a {\em provider framework} for common cryptography operations such as hashing, sign/verify, encrypt/decrypt and key/certificate generation. Each of these operations have an algorithm- and implementation-independent interface, most of which operates on objects implementing the \path{javax.crypto.SecretKey}, \path{java.security.PublicKey} or \path{java.security.PrivateKey} interfaces, depending on the context.
 
 		This makes it possible for crypto code to be written largely independent on actual implementation e.g. of the keys.
 
@@ -88,41 +88,40 @@
 		To achieve our goal, we need to be able to securely store and generate both symmetric and asymmetric keys, regardless of the key type.
 
 		Apps should be able to do crypto operations with specific keys. In order to access those keys, the user should be required to give his permission. The operations necessary can be distinguished by the key type.
-		\begin{description}
-			\item[private key] For private keys, operations include decryption and signing of data.
-			\item[public key] For public keys it's encryption and verification.
-			\item[symmetric key] With symmetric keys, apps need to be able to both en-/decrypt, as well as sign and verify, which means generating and checking {\em message authentication codes (MAC)} in this case.
-		\end{description}
+		\begin{itemize}
+			\item For private keys, operations include decryption and signing of data.
+			\item For public keys it's encryption and verification.
+			\item With symmetric keys, apps need to be able to both en-/decrypt, as well as sign and verify, which means generating and checking {\em message authentication codes (MAC)} in this case.
+		\end{itemize}
 
 		These operations must not leak any kind of private key parameter or any part of the symmetric key used.
 
-		For convenience, it would be a good idea to create and store key exchange (eg. Diffie-Hellman) parameters as well, and to automatically derive and store the symmetric key on receiving the remote's parameters. %TODO: Explain this further.
+		For convenience, it would be a good idea to create and store key exchange (eg. Diffie-Hellman) parameters as well, and to automatically derive and store the resulting symmetric key on receiving the remote's parameters. %TODO: Explain this further.
 
 	\subsection{Workflow with the existing KeyChain API}
-		In the KeyChain API there is \texttt{AndroidKeyPairGenerator}, \texttt{AndroidKeyStore} and 
-		\texttt{KeyChain}.
+		% don't remove this linebreak, tex seems to have issues wrapping this line correctly.
+		In the KeyChain API there is \texttt{AndroidKeyPairGenerator}, \texttt{AndroidKeyStore} \linebreak and \texttt{KeyChain}.
 
-		The \texttt{AndroidKeyPairGenerator} implements JCA's \texttt{KeyPairGenerator} interface and sends a request to generate a key to the \texttt{keystore} daemon. This way, the keys' types are hard coded to {\em 2048 bit RSA}. The \texttt{AndroidKeyStore} implements the \texttt{KeyStore} interface. It retrieves the key references from the daemon, but does no permission checking. If the requesting app has never been granted to access the requested key, the access simply fails. Another noteworthy thing is, that it only supports only asymmetric keys.
+		The \texttt{AndroidKeyPairGenerator} implements JCA's \texttt{KeyPairGenerator} interface and sends a request to generate a key to the \texttt{keystore} daemon. This way, the keys' types are hard coded to {\em 2048 bit RSA}. The \texttt{AndroidKeyStore} implements the \texttt{KeyStore} interface. It retrieves the key references from the daemon, but does no permission checking. If the requesting app has never been granted to access the requested key, the access simply fails. Additionally, it only supports only asymmetric keys.
 
-		Key references means that the returned key objects don't carry the parameters themselves, but instead they are	handles that the OpenSSL JCA provider can use to run the crypto operations on the keys in the keystore, so the Java code (and specifically, the app's code) never sees any crypto parameters at all. The \texttt{KeyChain} allows to retrieve \texttt{PrivateKey} using the \texttt{AndroidKeyStore}, but requests permission to access a key beforehand. The user will see a dialog telling him which app tries to access a key, can choose the one he wants to use and the app gets access to that granted key. 
+		Key references means that the returned key objects don't carry the cryptographic parameters themselves, but instead they are handles that the OpenSSL JCA provider can use to run the crypto operations on the keys in the \texttt{keystore}, so the Java code (and specifically, the app's code) never sees any crypto parameters at all. The \texttt{KeyChain} allows to retrieve \texttt{PrivateKey} using the \texttt{AndroidKeyStore}, but requests permission to access a key beforehand. The user will see a dialog telling him which app tries to access a key, can choose the one he wants to use and the app gets access to that granted key. 
 		
 	\subsection{Proposed Implementation Ideas}
 		\subsubsection{Reuse KeyChain API}
-			Our initial plan was to reuse as much of the KeyChain API as possible. Nevertheless we would need to add support	for symmetric keys and other asymmetric key types in both storage and key generation as well as support for key	exchange handling.
+			Our initial plan was to reuse as much of the KeyChain API as possible. Nevertheless we would need to add support for symmetric keys and other asymmetric key types in both storage and key generation as well as support for key exchange handling.
 
-			This turned out to be harder than we thought, as we would need to rewrite significant amount of C++ code in the	\texttt{keystore} daemon for supporting anything else than RSA. Also we would have to rewrite the protocol the \texttt{keystore} uses to communicate with the Java framework.
+			This turned out to be harder than we thought, as we would need to rewrite significant amount of C++ code in the \texttt{keystore} daemon for supporting anything else than RSA. Also we would have to rewrite the protocol the \texttt{keystore} uses to communicate with the Java framework.
 			
-			On top of that, there turns out to be a bug somewhere in Android's OpenSSL engine, which causes {\em dalvik} to	{\em segfault} as soon as encryption or decryption is being run with the returned key references.
+			On top of that, there turns out to be a bug somewhere in Android's OpenSSL engine, which causes {\em dalvik} to {\em segfault} as soon as encryption or decryption is being run with the returned key references.
 
 		\subsubsection{The manual way}
-			% TODO rewrite to match the above
-			After many tries, we finally retrieved a working solution in doing everything in our own code and store the keys as blobs in the \texttt{keystore}. This means:
+		After various attempts to reuse existing \texttt{KeyChain} code, we got to a working solution by doing everything in our own code and store the keys as blobs in the \texttt{keystore}. This means:
 			\begin{enumerate}
 				\item Manually generate the key pair, manually store it in the \texttt{keystore} as a PKCS\#8 (not PKCS\#12) encoded blob and the certificate as PEM encoded blob.
 				\item For encryption, manually load the certificate from \texttt{keystore}, parse it, feed it to \path{java.security.Cipher}.
 				\item For decryption, manually load the private key from \texttt{keystore}, parse it, feed it to \path{java.security.Cipher}.
+				\item For symmetric crypto, we simply store the secret key bytes as blobs in \texttt{keystore}.
 			\end{enumerate}
-			%TODO: Symmetric crypto!
 
 \section{Implementing the framework}
 
@@ -136,48 +135,52 @@
 			\item Import/Export of key \emph{pairs}\footnote{Users should be able to export their keys for use on other devices.}
 			\item Grant key access to apps
 		\end{enumerate}
-		Our first sketch didn't quite reflect symmetric encryption, so there was some more work due in refining our API, with the final result being as followed.
+		Our first sketch didn't quite reflect symmetric encryption, so there was some more work due in refining our API, with the final result being as follows.
 
-		% TODO match completely to current API
 		\begin{enumerate}
 		\tt
-			\item encrypt(keyId, algorithm, padding, plaintext, initVector) \totype ciphertext
-			\item decrypt(keyId, algorithm, padding, ciphertext, initVector) \totype plaintext
+			\item encryptData(keyId, algorithm, padding, plaintext, IV) \totype ciphertext
+			\item decryptData(keyId, algorithm, padding, ciphertext, IV) \totype plaintext
 			\item sign(keyId, algorithm, plaintext) \totype signature
 			\item verify(keyId, algorithm, plaintext, signature) \totype isValid
-%			\item requestKey() \totype keyId %->This is not in our current api, which is exposed to other apps.
-			\item storePublicCertificate(keyId, certificate) \totype void\footnote{Existing methods in \texttt{android.security.KeyChain} can be used for retrieving the certificate / public key}
+			\item storePublicCertificate(keyId, certificate) \totype void
+
 			\item generateSymmetricKey(keyId, algorithm, keysize) \totype void
 			\item retrieveSymmetricKey(keyId, algorithm) \totype key
 			\item importSymmetricKey(keyId, key) \totype void
 			\item deleteSymmetricKey(keyId) \totype void
 			\item mac(keyId, algorithm, plaintext) \totype mac
+
 			\item generateKeyPair(keyId, algorithm, keysize) \totype publicKey
-			\item keyAgreementPhase(keyId, algorithm, agreementAlgorithm, publicKey, isLastPhase) \totype publicKey
+			\item keyAgreementPhase(keyId, keyAlgorithm, agreementAlgorithm, publicKey, isLastPhase) \totype publicKey
 		\end{enumerate}
+
 		Keys itself are referenced by an string alias (\emph{keyId}). Every key has exactly one alias assigned in the \texttt{keystore}. This alias must be unique.
 	
-		The functions \texttt{encrypt} and \texttt{decrypt} are used for symmetric as well as for asymmetric crypto. %TODO: Is verify capable of verifying macs?
-		The functions \texttt{sign}, \texttt{storePublicCertificate}, \texttt{generateKeyPair} and \texttt{keyAgreementPhase} are exclusive to asymetric crypto. The other functions are just for symmetric crypto operations.
+		The functions \texttt{encrypt} and \texttt{decrypt} are used for symmetric as well as for asymmetric crypto.
+
+		The functions \texttt{sign}, \texttt{verify} and \texttt{storePublicCertificate} are exclusive to asymmetric crypto.
+
+		\texttt{generateKeyPair} and \texttt{keyAgreementPhase} are intended for key agreement protocols like the Diffie-Hellman key exchange. This way, you can create key agreement parameters (which are handled as \texttt{PrivateKey} and \texttt{PublicKey} objects), transmit them to your communication partner. You then feed in the received parameters using \texttt{keyAgreementPhase} which can return another set of parameters if the protocol is not finished yet, or, if the protocol is finished, it will immediatly derive the shared secret key and store it under the alias previously used by the key exchange parameters.
+
+		The other functions are just for symmetric crypto operations.
 	
 	\subsection{Key Management App}
-		In addiction to all the new crypto operations, keys have to be assigned to contacts and receive an second alias therefore.
+		In addiction to all the new crypto operations, keys have to be assigned to contacts.
+
+		This is realized in the new {\em Key Management} system app. After a key was created or imported, it can be assigned to contacts. Each assignment gets a new string identifier (called {\em usage type}) which is arbitrary but application defined. For example a crypto e-mail could get \textit{mail-crypt} as usage type. Now whenever an encrypted e-mail is send to a contact, the program only has to check if the usage type is present. If not, no key for this usage is defined and so encryption can't happen. This way, the user can decide which key to use for which application, and easily replace keys once they are obsolete.
 		
-		After a key was created or imported, it is possible to assign this key to one or many contacts. Each assignment gets a new string alias which is arbitrary. The alias has to be unique per contact. It is also possible to assign the same key more than once to a contact with the premise, that the alias is different each time. The alias has two purposes:
-		\begin{enumerate}
-			\item Identify the key.
-			\item Act as a usage type.
-		\end{enumerate}
-		The first should be clear. Act as a \emph{usage type} means, to assign a logic to this key. Each app that interacts with the KeyChain gets its own usage type. For example an crypto e-mail would get \textit{mail-crypt} as usage type. Now whenever an encrypted e-mail is send to a contact, the program only has to check if the usage type is present. If not, no key for this usage is defined and so encryption can't happen.
-		%TODO: Explain in greater detail, how keys are assigned to contacts (MIME-Type?)
+		Each usage type has to be unique per contact. It is also possible to assign the same key more than once to a contact, provided that the usage type is different each time.
+
+		The key assignments are stored with a {\em MIME} type of \texttt{vnd.android.cursor.item/key} in the \texttt{ContactsContract.Data} table of the {\em Android contacts provider\footnote{\url{http://developer.android.com/guide/topics/providers/contacts-provider.html}}}.
 		
 \section{Integrating the SMS app with our API}
 	\label{sec-sms-app}
-	At first we thought about integrating asymmetric cryptography with the standard e-mail app. Sven Bugiel brought to our attention, that extending the default e-mail app would be quite complicated and would bear a huge overhead. He also suggested to take on SMS as this would be more feasible. As asymmetric crypto bears a huge overhead for SMS (in terms of cost per SMS) we decided to implement symmetric cryptography with the SMS app instead. %TODO: Is this enough for the part of "Why"?
+	At first we thought about integrating asymmetric cryptography with the standard e-mail app. Sven Bugiel brought to our attention that extending the default e-mail app would be quite complicated and would bear a huge overhead. He also suggested to take on SMS as this would be more feasible. As asymmetric crypto bears a huge overhead for SMS (in terms of message size and therefore cost per SMS) we decided to implement symmetric cryptography with the SMS app instead. %TODO: Is this enough for the part of "Why"?
 	
-	In our scenario we assumed, that the symmetric key would already be exchanged with the other party. So we just had to handle sending and receiving SMS.
+	In this scenario, we assumed that the symmetric key would already be exchanged with the other party. So we just had to handle sending and receiving SMS.
 	
-	The greatest inconvenience with system apps is, that one first has to build the image, once you've developed something. As compiling android even on good systems takes hours, we decided against altering the system app and instead overlaying it. This means:
+	The greatest inconvenience with system apps is that one first has to build the image once you developed something. As compiling android even on good systems takes hours, we decided against altering the system app and instead overlaying it. This means:
 	\begin{itemize}
 		\item For writing encrypted messages, a seperate UI is needed.
 		\item For receiving encrypted messages, broadcasts need to be captured.
