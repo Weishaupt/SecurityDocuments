@@ -40,9 +40,9 @@
 \pagebreak[4]
 
 \section{Introduction}
-	Since Android API Level\footnote{\url{http://developer.android.com/guide/topics/manifest/uses-sdk-element.html\#ApiLevels}} 14 (4.0 Ice Cream Sandwich) the KeyChain\footnote{\url{http://developer.android.com/reference/android/security/KeyChain.html}} class exists in Android. The KeyChain class provides access to private keys and their corresponding certificate chains in credential storage.
+	Since Android API Level\footnote{\url{http://developer.android.com/guide/topics/manifest/uses-sdk-element.html\#ApiLevels}} 14 (4.0 Ice Cream Sandwich) the KeyChain\footnote{\url{http://developer.android.com/reference/android/security/KeyChain.html}} class exists in Android. The KeyChain class allows storage of asymmetric keys in a secure credential storage.
 
-	Whenever in the current implementation an authorized app calls to retrieve the private key, it'll get it. Our goal was to extend the given functionality further with a crypto oracle. With that functionality, apps should call the API with the data they want en-/decrypted or signed/verified. In the process of en-/decryption and signing the API would return the respective string. With verifying the API would return a boolean indicating verification success or failure.
+	Whenever in the current implementation an authorized app calls to retrieve the private key, it'll get it. Our goal was to extend the given functionality further with a crypto oracle, as well as support for different key types, both symmetric and asymmetric. With that functionality, apps should call the API with the data they want en-/decrypted or signed/verified. In the process of en-/decryption and signing the API would return the respective byte data. With verifying the API would return a boolean indicating verification success or failure.
 	
 	Besides the new API, we wanted to alter at least one system app to comply with our enhanced KeyChain. After suggestions from Sven Bugiel (our supervisor) we decided to implement symmetric encryption with the SMS app in lieu of the E-Mail app. More on that in section \ref{sec-sms-app}.
 
@@ -51,11 +51,11 @@
 
 	\subsection{Class Overview}
 		\begin{description}
-			\item[KeyChain] is the Android API for importing PKCS\#12 containers (private keys, public key certificates and CA certificates) and providing grant-based access of the keys to apps. The PKCS\#12 format allows the container to be encrypted and/or signed.
+			\item[KeyChain] is the Android API for importing PKCS\#12 containers (private keys, public key certificates and CA certificates) and providing grant-based access of the keys to apps. The PKCS\#12 format requires the container to be encrypted.
 				\begin{itemize}
 					\item When an import is requested the API creates an Intent, which is handled in the system app \path{com.android.certinstaller} (source at \path{packages/apps/CertInstaller/CertInstaller.java} et al.). CertInstaller spawns a dialog and handles the container decryption process as well as stores the keys in the \texttt{keystore} daemon (see below).
 					\item Keys are identified by aliases, which are chosen by the user when the CertInstaller is invoked with an import request.
-					\item Private as well as public keys (certificates) can be requested:
+					\item Private as well as public keys (in the form of certificates) can be requested:
 					\begin{itemize}
 						\item If access to a private key was granted to the requesting app, it can be retrieved using \texttt{getPrivateKey()}.
 						\item Public keys can be retrieved through \texttt{getCertificateChain()}
@@ -79,62 +79,64 @@
 			\item [CertInstaller] The \texttt{CertInstaller} is a system app that lets a user import and install key pairs and certificates from PKCS\#12 container format files. %TODO: Expand!
 		\end{description}
 
+	\subsection*{Detour: Java Cryptography Architecture}
+		The JCA is a {\em provider framework} for common cryptography operations such as hashing, sign/verify,
+		encrypt/decrypt and key/certificate generation. Each of these operations have an algorithm- and
+		implementation-independent interface, most of which operates on objects implementing the
+		\path{javax.crypto.SecretKey}, \path{java.security.PublicKey} or \path{java.security.PrivateKey}
+		interfaces, depending on the context.
 
+		This makes it possible for crypto code to be written largely independent on actual implementation
+		e.g. of the keys.
+
+	\section{Requirements}
+		To achieve our goal, we need to be able to securely store and generate both symmetric and asymmetric
+		keys, regardless of the key type.
+
+		Apps should be able to do crypto operations with specific keys, access to which should require the user
+		to give her permission. For private keys, these operations include decryption and signing of data, while
+		for public keys it's encryption and verification. With symmetric keys, apps need to be able to both
+		encrypt and decrypt, as well as sign and verify (which means generating and checking {\em message
+		authentication codes} in this case).
+
+		These operations must not leak any kind of private key parameter or any part of the symmetric key used.
+
+		For convenience, it would be a good idea to create and store key exchange (eg. Diffie-Hellman) parameters
+		as well, and to automatically derive and store the symmetric key on receiving the remote's parameters.
+
+	\subsection{Workflow with the existing KeyChain API}
+		In the KeyChain API there is \texttt{AndroidKeyPairGenerator}, \texttt{AndroidKeyStore} and \linebreak \texttt{KeyChain}.
+
+		The \texttt{AndroidKeyPairGenerator} implements JCA's \texttt{KeyPairGenerator} interface and sends a request
+		to generate a key to the {\em keystore} daemon. This way, the keys' types are hard coded to {\em 2048 bit RSA}.
+		
+		The \texttt{AndroidKeyStore} implements the \texttt{KeyStore} interface. It retrieves the key references from
+		the daemon, but does no permission checking. If the requesting app has never been granted to access the requested
+		key, the access simply fails. It supports only asymmetric keys as well.
+
+		Key references means that the returned key objects don't carry the parameters themselves, but instead they are
+		handles that the OpenSSL JCA provider can use to run the crypto operations on the keys in the keystore, so the
+		Java code (and specifically, the app's code) never sees any crypto parameters at all.
+
+		The \texttt{KeyChain} allows to retrieve \texttt{PrivateKey}s using the \texttt{AndroidKeyStore}, but requests
+		permission to access a key beforehand. The user will see a dialog telling him which app tries to access a key,
+		she can choose the one she wants to use and the app gets access to that specific key.
 
 	\subsection{Proposed Implementation Ideas}
-		Before we could get any real work done, we needed an angle on how we could implement our enhancements.
+		\subsubsection{Reuse KeyChain API}
+			Our initial plan was to reuse as much of the KeyChain API as possible. Nevertheless we would need to add support
+			for symmetric keys and other asymmetric key types in both storage and key generation as well as support for key
+			exchange handling.
 
-		Using \texttt{keystore}'s own \texttt{key} storage format sounded promising, as it already applies non-exportability and provides sign/verify operations.
-		\subsubsection{AndroidKeyPairGenerator \& KeyChain}
-			At first we tried to reuse as much code as possible.
-			\begin{enumerate}
-				\item Use \path{android.security.AndroidKeyPairGenerator} for key generation and storage.
-				\item Use \path{KeyChain.getCertificateChain()} and \path{java.security.Cipher} for encryption.
-				\item Use \path{KeyChain.getPrivateKey()} and \path{java.security.Cipher} for decryption.
-			\end{enumerate}
-			The results were rather frustrating. \texttt{AndroidKeyPairGenerator} isn't really well developed as of yet.
-			\begin{itemize}
-				\item It's not registered as a \texttt{java.security.KeyPairGenerator} provider, so we either have to change the ROM or each app will have to register it on itself.
-				\item It's not configurable in terms of private key parameters (key size, key type\footnote{At this point, the key type is hard coded to RSA by the \texttt{keystore} anyway. While we could store the keys as blobs to support more key formats, the current Android \texttt{java.security.Security} providers only support RSA for asymmetric encryption and RSA and DSA for signatures, so we wouldn't gain much.})
-			\end{itemize}
-			In conclusion: While we could live with the rest, fixed key size is not quite what we were hoping for. Also, for some reason, \path{KeyChain.getPrivateKey()} does not work --- the \texttt{keystore} fails with \texttt{KEY\_NOT\_FOUND}.
+			This turned out to be harder than we thought, as we would need to rewrite significant amount of C++ code in the
+			\texttt{keystore} daemon for supporting anything else than RSA. Also we would have to rewrite the protocol the
+			\texttt{keystore} uses to communicate with the Java framework.
 
-		\subsubsection*{Detour: Importing keys with CertInstaller}
-			When importing a PKCS\#12 file the \texttt{CertInstaller} works like this:%does the following:
-			\begin{enumerate}
-				\item Ask the user for the container's password.
-				\item Decrypt the container \& parse contents to \texttt{java.security.PrivateKey}.
-				\item Request an alias from the user to provide further identification of the key pair.
-				\item Re-encode the keys.
-				\item Send keys to \texttt{com.android.settings.CredentialStorage}, which in turn sends the key to the \texttt{keystore} daemon for storage.
-			\end{enumerate}
-		\subsubsection{KeyPairGenerator \& CertInstaller}
-			Instead of using the Android specific \texttt{KeyPairGenerator}, we could use the default \texttt{KeyPairGenerator}\footnote{\url{http://docs.oracle.com/javase/6/docs/api/java/security/KeyPairGenerator.html}} provided by Java and send the key pair to \texttt{CertInstaller} to handle the storage.
+			And finally, there turns out to be a bug somewhere in Android's OpenSSL engine, which causes {\em dalvik} to
+			{\em segfault} as soon as encryption or decryption is being run with the returned key references.
 
-			Unfortunately, we were unable to skip the first two steps --- we would have had to provide our keys as encrypted PKCS\#12 containers. Since we already had the contents of the container (because we were generating it with \texttt{KeyPairGenerator}), it wouldn't make sense to pack and encrypt them, just to decrypt and unpack them again.
-
-			Thus we implemented step 3 to 5 on our own and let \texttt{CredentialStorage} take care of the storage\footnote{For this we had to move our code from the \texttt{KeyChain} app to the \texttt{CertInstaller} app because the CredentialStorage refuses to talk to anybody else.}, this left us with working key generation and storage.
-
-			% TODO i don't like this phrasing
-			The problem now is that \path{KeyChain.getPrivateKey()} won't work. It turns out that, the way \texttt{getPrivateKey()} works, it prepares the alias by checking some permissions and adding the system uid (\texttt{1000}) to the name. The \texttt{keystore} daemon does the same under some circumstances, this being one of them. In the end the \texttt{keystore} daemon tried to read \texttt{1000\_1000\_USRPKEY\_alias} instead of \texttt{1000\_USRPKEY\_alias}.
-
-			Conclusion: We can't use \texttt{KeyChain.getPrivateKey()} either.
-
-		%\pagebreak[4]
-		\subsubsection{CertInstaller \& OpenSSL engine}
-			The keystore offers a custom OpenSSL engine which provides access to \texttt{PrivateKey} objects backed by the storage. Our idea was to:
-
-			\begin{enumerate}
-				\item Use our code in \texttt{CertInstaller} as outlined above.
-				\item For decryption, load private key directly from the \texttt{keystore} OpenSSL engine (like \texttt{KeyChain} does).
-				\item For encryption, load public key using \path{KeyChain.getCertificateChain()}
-			\end{enumerate}
-			Observation:
-			The \emph{decryption crashes the process} (SIGSEGV, not a java exception)\\
-			Conclusion:
-			\texttt{keystore}'s \texttt{key} type is broken. From the \texttt{keystore} code it seems to only allows access to the public key --- it returns the public key data even when a private key was requested. The included OpenSSL Java-API parses this as a \texttt{PrivateKey} and returns it. Any private-key-crypto operation obviously crashes.
-
-		\subsubsection{Do everything manually}
+		\subsubsection{The manual way}
+			% TODO rewrite to match the above
 			Obviously none of these approaches worked out very well. As a result we're going to do everything in our own code and store the keys as blobs in the \texttt{keystore}. This means:
 			\begin{enumerate}
 				\item Manually generate the key pair, manually store it in the \texttt{keystore} as a PKCS\#8 (not PKCS\#12) encoded blob and the certificate as PEM encoded blob.
@@ -152,6 +154,8 @@
 		\item Grant key access to apps
 	\end{enumerate}
 	Our first sketch didn't quite reflect symmetric encryption, so there was some more work due in refining our API, with the final result being as followed.
+
+	% TODO match completely to current API
 	\begin{enumerate}
 	\tt
 		\item encrypt(keyId, algorithm, padding, plaintext, initVector) \totype ciphertext
@@ -169,9 +173,12 @@
 	\end{enumerate}
 	Keys itself are referenced by an string alias.
 
+	% TODO explain assignment of contacts/key usage types/key aliases
+
 \section{Integrating the SMS app with our API}
 	\label{sec-sms-app}
-	At first we thought about integrating asymmetric cryptography with the standard e-mail app. As development moved on, we decided to go with implementing symmetric cryptography with the SMS app instead. In our scenario we assumed, that the symmetric key would already be exchanged with the other party. So we just had to handle sending and receiving SMS.
+	At first we thought about integrating asymmetric cryptography with the standard e-mail app. As development moved on, we decided to go with implementing symmetric cryptography with the SMS app instead. % TODO why?
+	In our scenario we assumed, that the symmetric key would already be exchanged with the other party. So we just had to handle sending and receiving SMS.
 	
 	The greatest inconvenience with system apps is, that you first have to build the image, once you've developed something. As compiling android even on good systems took
 	
