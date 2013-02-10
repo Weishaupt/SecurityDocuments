@@ -50,37 +50,36 @@
 	Besides the new API, we wanted to alter at least one system app to comply with our enhanced KeyChain. After suggestions from Sven Bugiel (our supervisor) we decided to implement symmetric encryption with the SMS app in lieu of the E-Mail app. More on that in section \ref{sec-sms-app}.
 
 \section{Initial Situation}
-	At the starting point, we were confronted with a quite unfinished, not wholly tested API. Furthermore the KeyChain API lacks in documentation. So we had to figure out in what way it would be possible to implement our functionality.
-
-	\subsection{Class Overview}
-		\begin{description}
-			\item[KeyChain] is the Android API for importing PKCS\#12 containers (private keys, public key certificates and CA certificates) and providing grant-based access of the keys to apps. The PKCS\#12 format requires the container to be encrypted.
+	At the starting point, we were confronted with a quite unfinished, not wholly tested API. Furthermore the KeyChain API lacks in documentation. So we had to figure out in what way it would be possible to implement our functionality. The following listing gives an overview of the need to know classes for this project:
+	
+	\begin{description}
+		\item[KeyChain] is the Android API for importing PKCS\#12 containers (private keys, public key certificates and CA certificates) and providing grant-based access of the keys to apps. The PKCS\#12 format requires the container to be encrypted.
+			\begin{itemize}
+				\item When an import is requested the API creates an Intent, which is handled in the system app \path{com.android.certinstaller} (source at \path{packages/apps/CertInstaller/CertInstaller.java} et al.). CertInstaller spawns a dialog and handles the container decryption process as well as stores the keys in the \texttt{keystore} daemon (see below).
+				\item Keys are identified by aliases, which are chosen by the user when the CertInstaller is invoked with an import request.
+				\item Private as well as public keys (in the form of certificates) can be requested:
 				\begin{itemize}
-					\item When an import is requested the API creates an Intent, which is handled in the system app \path{com.android.certinstaller} (source at \path{packages/apps/CertInstaller/CertInstaller.java} et al.). CertInstaller spawns a dialog and handles the container decryption process as well as stores the keys in the \texttt{keystore} daemon (see below).
-					\item Keys are identified by aliases, which are chosen by the user when the CertInstaller is invoked with an import request.
-					\item Private as well as public keys (in the form of certificates) can be requested:
-					\begin{itemize}
-						\item If access to a private key was granted to the requesting app, it can be retrieved using \texttt{getPrivateKey()}.
-						\item Public keys can be retrieved through \texttt{getCertificateChain()}
-					\end{itemize}
-				\item \texttt{KeyChain} also contains \texttt{AndroidKeyPairGenerator} since Android 4.2, which generates and stores key pairs in \texttt{key\-store} automatically.
+					\item If access to a private key was granted to the requesting app, it can be retrieved using \texttt{getPrivateKey()}.
+					\item Public keys can be retrieved through \texttt{getCertificateChain()}
 				\end{itemize}
+			\item \texttt{KeyChain} also contains \texttt{AndroidKeyPairGenerator} since Android 4.2, which generates and stores key pairs in \texttt{key\-store} automatically.
+			\end{itemize}
 
-			\item[KeyChain app] is a system application implementing most parts of the \texttt{KeyChain} API. It grants key access to apps and retrieves keys from the secure native \texttt{keystore} daemon (see below).
+		\item[KeyChain app] is a system application implementing most parts of the \texttt{KeyChain} API. It grants key access to apps and retrieves keys from the secure native \texttt{keystore} daemon (see below).
 
-			\item[keystore] is the native deamon (written in C++) that holds encrypted key information.
-				\begin{itemize}
-					\item The storage is encrypted with a master key which is derived from the unlock passphrase, PIN or pattern of the device\footnote{In order to import and use certificates that are not in the trusted certificates from the Android base (known as user certificates), respectivey use the \texttt{keystore}, a PIN, passphrase or pattern has to be created, that'll unlock the device.}.
-					\item Unlocks on the \emph{first successful unlock attempt} of the device, won't lock again \emph{until the phone is powered off}. This means the keystore is protected for example from rooting, but not from live-debugging. (It is possible for apps to lock it manually, though.)
-					\item The service supports two storage types:
-					\begin{description}
-						\item[key] is a RSA keypair. Once stored the private key cannot be exported again, more on this later.
-						\item[blob] can be arbitrary data.
-					\end{description}
-					\item \texttt{keystore} provides an OpenSSL engine called \texttt{keystore}, which should be able to retrieve PrivateKey objects from the daemon directly in Java code.
-				\end{itemize}
-			\item [CertInstaller] The \texttt{CertInstaller} is a system app that lets a user import and install key pairs and certificates from PKCS\#12 container format files. %TODO: Expand!
-		\end{description}
+		\item[keystore] is the native deamon (written in C++) that holds encrypted key information.
+			\begin{itemize}
+				\item The storage is encrypted with a master key which is derived from the unlock passphrase, PIN or pattern of the device\footnote{In order to import and use certificates that are not in the trusted certificates from the Android base (known as user certificates), respectivey use the \texttt{keystore}, a PIN, passphrase or pattern has to be created, that'll unlock the device.}.
+				\item Unlocks on the \emph{first successful unlock attempt} of the device, won't lock again \emph{until the phone is powered off}. This means the keystore is protected for example from rooting, but not from live-debugging. (It is possible for apps to lock it manually, though.)
+				\item The service supports two storage types:
+				\begin{description}
+					\item[key] is a RSA keypair. Once stored the private key cannot be exported again, more on this later.
+					\item[blob] can be arbitrary data.
+				\end{description}
+				\item \texttt{keystore} provides an OpenSSL engine called \texttt{keystore}, which should be able to retrieve PrivateKey objects from the daemon directly in Java code.
+			\end{itemize}
+		\item [CertInstaller] The \texttt{CertInstaller} is a system app that lets a user import and install key pairs and certificates from PKCS\#12 container format files. %TODO: Expand!
+	\end{description}
 
 	\subsection*{Detour: Java Cryptography Architecture (JCA)}
 		The JCA is a {\em provider framework} for common cryptography operations such as hashing, sign/verify, encrypt/decrypt and key/certificate generation. Each of these operations have an algorithm- and implementation-independent interface, most of which operates on objects implementing the \path{javax.crypto.SecretKey}, \path{java.security.PublicKey} or \path{java.security.PrivateKey} interfaces, depending on the context.
@@ -248,6 +247,11 @@
 		\begin{enumerate}
 			\item Warn the user, if the encrypted SMS is longer than 160 characters, because it cost more money to send them.
 			\item Implement a character counter, that encrypts the text on-the-fly and displays used characters of the encrypted SMS.
+		\end{enumerate}
+		\item A further security consideration would be to store the SMS encrypted on the phone. Of course there are several possible ways to do so.
+		\begin{enumerate}
+			\item Encrypt SMS with the master key derived from the pin/pattern that locks the phone. This would be the way, the keystore is encrypted, too.
+			\item Encrypt with a application specific pin.
 		\end{enumerate}
 	\end{enumerate}
 	%Store encrypted on phone and decrypt with password.
