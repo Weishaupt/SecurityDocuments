@@ -176,9 +176,9 @@
 		for checking if requesting apps are allowed to access specific keys before obeying to their requests.
 	
 	\subsection{Key Management App}
-		In addiction to all the new crypto operations, keys have to be assigned to contacts. This is realized in the new {\em Key Management} system app. After a key was created or imported, it can be assigned to contacts. Each assignment gets a new string identifier (called {\em usage type}) which is arbitrary but application defined. For example a crypto e-mail could get \textit{mail-crypt} as usage type. Now whenever an encrypted e-mail is send to a contact, the program only has to check if the usage type is present. If not, no key for this usage is defined and so encryption can't happen. This way, the user can decide which key to use for which application, and easily replace keys once they are obsolete.
+		In addition to all the new crypto operations, keys have to be assigned to contacts. This is realized in the new {\em Key Management} system app. After a key was created or imported, it can be assigned to contacts. Each assignment gets a new string identifier (called {\em usage type}) which is arbitrary but application defined. For example a crypto e-mail could get \textit{mail-crypt} as usage type. Now whenever an encrypted e-mail is sent to a contact, the program only has to check if a key with this usage type is present. If not, no key for this usage is defined and so encryption can't happen. This way the user can decide which key to use for which application, and easily replace keys once they are obsolete.
 		
-		Each usage type has to be unique per contact. It is also possible to assign the same key more than once to a contact, provided that the usage type is different each time. This means, that a user can have the same key for e-mail and SMS encryption.
+		Each usage type has to be unique per contact. It is also possible to assign the same key more than once to a contact, provided that the usage type is different each time. For example, a user could use the same key for e-mail and SMS encryption.
 
 		The key assignments are stored with a MIME type of \texttt{vnd.android.cursor.item/key} in the \texttt{ContactsContract.Data} table of the {\em Android contacts provider\footnote{\url{http://developer.android.com/guide/topics/providers/contacts-provider.html}}}.
 		
@@ -186,11 +186,11 @@
 	\label{sec-sms-app}
 	
 	\subsection{Considerations}
-		At first we thought about integrating asymmetric cryptography with the standard e-mail app. Sven Bugiel brought to our attention that extending the default e-mail app would be quite complicated and would bear a huge overhead. He also suggested to take on SMS as this would be more feasible. As asymmetric crypto bears a huge overhead for SMS (in terms of message size and therefore cost per SMS) we decided to implement symmetric cryptography with the SMS app instead. %TODO: Is this enough for the part of "Why"?
+		At first we thought about integrating asymmetric cryptography with the standard e-mail app. Sven Bugiel brought to our attention that extending the default e-mail app would be quite complicated and would bear a huge overhead. Instead he suggested to take on SMS as this would be more feasible. As asymmetric crypto bears a huge overhead for SMS (in terms of message size and therefore cost per SMS) we decided to implement symmetric cryptography with the SMS app instead. %TODO: Is this enough for the part of "Why"?
 	
 		In this scenario, we assumed that the symmetric key would already be exchanged with the other party. So we just had to handle sending and receiving SMS.
 	
-		The greatest inconvenience with system apps is that one first has to build the image once you developed something. As compiling android even on powerful systems takes hours, we decided against altering the system app and instead overlaying it. This means:
+		The greatest inconvenience with system apps is that one first has to build the image once you developed something. As compiling Android even on powerful systems takes hours, we decided against altering the system app and instead overlaying it. This means:
 		\begin{itemize}
 			\item For writing encrypted messages, a seperate UI is needed.
 			\item For receiving encrypted messages, broadcasts need to be captured.
@@ -200,8 +200,7 @@
 		
 	\subsection{Implementation Details}
 		\subsubsection{Sending}
-			Since outgoing messages can't be intercepted and modified, there needs to be separate custom activity for composing	encrypted messages. Outgoing messages are stored in the SMS content provider as well, so they can appear in the conversation history and receive status updates (like a delivery notification). Then they are encrypted and sent using the Android API
-	\texttt{SmsManager}. The layout is very simple. It consists out of a contact field, a text field and a send button. See figure \ref{fig:compose}.
+			Since outgoing messages can't be intercepted and modified, there needs to be separate custom activity for composing encrypted messages.  The layout is very simple. It consists out of a contact field, a text field and a send button. See figure \ref{fig:compose}.
 			\begin{figure}[h]
 				\centering
 					\includegraphics[width=15em]{crypt-compose}
@@ -210,15 +209,20 @@
 			\end{figure}
 
 			Contacts are only selectable if they have a key with the {\em usage type} of \texttt{sms-symmetric} defined. After composing is finished, the user sends the SMS with the send button. The text will then be encrypted with the given symmetric key and encoded in Base64. To identify encrypted SMS when they are received, the @-character will be appended at the beginning and the end.
-			Finally, if the text is longer than 160 characters, the SMS will be split into multiple parts and send to the receiver. At the same time, the unencrypted text will be stored in the conversation log for that contact.
+
+			Outgoing messages are stored in the (undocumented) SMS content provider \linebreak % check draft and linewrapping before removing
+			\texttt{content://sms}, so they can appear in the regular conversation history and receive status updates (for example a delivery notification). Then they are encrypted and sent, in multiple parts, if necessary, using the Android API \texttt{SmsManager}.
+
 		\subsubsection{Receiving}
-      For receiving SMS, apps need to intercept the \texttt{SMS\_RECEIVED} broadcast with a high priority, before any other app can handle them. After being processed a notification is shown and the decrypted message will be stored in the (undocumented) SMS content provider \texttt{content://sms}, so the message appears in the regular conversation history.	Once the user has assigned a \texttt{sms-symmetric} key to a contact, decrypting SMS woks without any interference of the user. Basically, the steps of decrypting are reverse to encrypting. If a broadcast for a new incoming SMS is received, then:
+      For receiving SMS, apps need to intercept the \texttt{SMS\_RECEIVED} broadcast with a high priority, before any other app can handle them. After being processed a notification is shown and the decrypted message will be stored in the SMS content provider as well.
+      
+      Once the user has assigned a \texttt{sms-symmetric} key to a contact, decrypting SMS woks without any interference of the user. Basically, the steps of decrypting are reverse to encrypting. If a broadcast for a new incoming SMS is received, then:
 			\begin{enumerate}
-				\item Check if the SMS is encrypted after all parts were received (@-char at the beginning and end)
-				\item Check if the Sender has a key assigned, if yes then
-				\item Abort broadcast
-				\item Decrypt SMS
-				\item Store decrypted SMS in the conversation log.
+				\item check if the SMS is encrypted after all parts were received (@-char at the beginning and end)
+				\item check if the Sender has a key assigned, if yes then
+				\item abort broadcast
+				\item decrypt SMS
+				\item store decrypted SMS in the conversation log.
 			\end{enumerate}
 
 \section{Key Exchange Scenarios}
