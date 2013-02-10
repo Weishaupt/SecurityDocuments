@@ -50,7 +50,7 @@
 	Besides the new API, we wanted to alter at least one system app to comply with our enhanced KeyChain. After suggestions from Sven Bugiel (our supervisor) we decided to implement symmetric encryption with the SMS app in lieu of the E-Mail app. More on that in section \ref{sec-sms-app}.
 
 \section{Initial Situation}
-	At the starting point, we were confronted with a quite unfinished, not wholly tested API. Furthermore the KeyChain API lacks in documentation. So we had to figure out in what way it would be possible to implement our functionality. The following listing gives an overview of the need to know classes for this project:
+	At the starting point, we were confronted with a quite unfinished, not wholly tested API. Furthermore the KeyChain API lacks in documentation. So we had to figure out in what way it would be possible to implement our functionality. The following listing gives an overview of the need-to-know classes for this project:
 	
 	\begin{description}
 		\item[KeyChain] is the Android API for importing PKCS\#12 containers (private keys, public key certificates and CA certificates) and providing grant-based access of the keys to apps. The PKCS\#12 format requires the container to be encrypted.
@@ -67,13 +67,13 @@
 
 		\item[KeyChain app] is a system application implementing most parts of the \texttt{KeyChain} API. It grants key access to apps and retrieves keys from the secure native \texttt{keystore} daemon (see below).
 
-		\item[keystore] is the native deamon (written in C++) that holds encrypted key information.
+		\item[keystore] is the native daemon (written in C++) that holds encrypted key information.
 			\begin{itemize}
-				\item The storage is encrypted with a master key which is derived from the unlock passphrase, PIN or pattern of the device\footnote{In order to import and use certificates that are not in the trusted certificates from the Android base (known as user certificates), respectivey use the \texttt{keystore}, a PIN, passphrase or pattern has to be created, that'll unlock the device.}.
+				\item The storage is encrypted with a master key which is derived from the unlock passphrase, PIN or pattern of the device\footnote{In order to import and use certificates that are not in the trusted certificates from the Android base (known as user certificates), respectively use the \texttt{keystore}, a PIN, passphrase or pattern has to be created, that will unlock the device.}.
 				\item Unlocks on the \emph{first successful unlock attempt} of the device, won't lock again \emph{until the phone is powered off}. This means the keystore is protected for example from rooting, but not from live-debugging. (It is possible for apps to lock it manually, though.)
 				\item The service supports two storage types:
 				\begin{description}
-					\item[key] is a RSA keypair. Once stored the private key cannot be exported again, more on this later.
+					\item[key] is a RSA key pair. Once stored the private key cannot be exported again, more on this later.
 					\item[blob] can be arbitrary data.
 				\end{description}
 				\item \texttt{keystore} provides an OpenSSL engine called \texttt{keystore}, which should be able to retrieve PrivateKey objects from the daemon directly in Java code.
@@ -127,7 +127,7 @@
 
 \section{Implementing the framework}
 
-	The framework respectively the backend consists of the \texttt{KeyChain} app for all the crypto operations on the one hand and the management of the keys on the other hand.
+	The framework respectively the back end consists of the \texttt{KeyChain} app for all the crypto operations on the one hand and the management of the keys on the other hand.
 
 	\subsection{Key Chain}
 		To reduce responsibility of the apps it makes sense to let the system app (\texttt{KeyChain}) handle everything related to key management:
@@ -166,7 +166,7 @@
 		The functions \texttt{sign}, \texttt{verify} and \texttt{storePublicCertificate} are exclusive to asymmetric crypto.
 		%TODO: Describe how an app is granted to use a key!
 
-		\texttt{generateKeyPair} and \texttt{keyAgreementPhase} are intended for key agreement protocols like the Diffie-Hellman key exchange. This way, you can create key agreement parameters (which are handled as \texttt{PrivateKey} and \texttt{PublicKey} objects), transmit them to your communication partner. You then feed in the received parameters using \texttt{keyAgreementPhase} which can return another set of parameters if the protocol is not finished yet, or, if the protocol is finished, it will immediatly derive the shared secret key and store it under the alias previously used by the key exchange parameters.
+		\texttt{generateKeyPair} and \texttt{keyAgreementPhase} are intended for key agreement protocols like the Diffie-Hellman key exchange. This way, you can create key agreement parameters (which are handled as \texttt{PrivateKey} and \texttt{PublicKey} objects), transmit them to your communication partner. You then feed in the received parameters using \texttt{keyAgreementPhase} which can return another set of parameters if the protocol is not finished yet, or, if the protocol is finished, it will immediately derive the shared secret key and store it under the alias previously used by the key exchange parameters.
 
 		The other functions are just for symmetric crypto operations.
 
@@ -192,7 +192,7 @@
 	
 		The greatest inconvenience with system apps is that one first has to build the image once you developed something. As compiling Android even on powerful systems takes hours, we decided against altering the system app and instead overlaying it. This means:
 		\begin{itemize}
-			\item For writing encrypted messages, a seperate UI is needed.
+			\item For writing encrypted messages, a separate UI is needed.
 			\item For receiving encrypted messages, broadcasts need to be captured.
 			\item In every case, the unencrypted messages are stored in the communication log with the respective contact.
 		\end{itemize}
