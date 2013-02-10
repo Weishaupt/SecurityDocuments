@@ -168,6 +168,11 @@
 		\texttt{generateKeyPair} and \texttt{keyAgreementPhase} are intended for key agreement protocols like the Diffie-Hellman key exchange. This way, you can create key agreement parameters (which are handled as \texttt{PrivateKey} and \texttt{PublicKey} objects), transmit them to your communication partner. You then feed in the received parameters using \texttt{keyAgreementPhase} which can return another set of parameters if the protocol is not finished yet, or, if the protocol is finished, it will immediatly derive the shared secret key and store it under the alias previously used by the key exchange parameters.
 
 		The other functions are just for symmetric crypto operations.
+
+		The API is made available to apps from the framework in the \texttt{android.security} package, but every call
+		is actually forwarded using the Binder IPC to the \texttt{KeyChain} app which runs with system permissions and
+		is allowed to do any operation on the \texttt{keystore} daemon. The \texttt{KeyChain} app is therefore responsible
+		for checking if requesting apps are allowed to access specific keys before obeying to their requests.
 	
 	\subsection{Key Management App}
 		In addiction to all the new crypto operations, keys have to be assigned to contacts.
