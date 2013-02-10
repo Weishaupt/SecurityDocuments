@@ -191,8 +191,15 @@
 		\item In every case, the unencrypted messages are stored in the communication log with the respective contact.
 	\end{itemize}
 	This also means, other than when sending encrypted SMS, the user doesn't have to differ from his known behavior.
-	%TODO: Explain exactly, how Sending and Receiving SMS is handled.
 	
+	For receiving SMS, apps need to intercept the \texttt{SMS\_RECEIVED} broadcast with a high priority, before any other app
+	can handle them. After being processed a notification is shown and the decrypted message will be stored in the (undocumented)
+	SMS content provider \texttt{content://sms}, so the message appears in the regular conversation history.
+
+	Since outgoing messages can't be intercepted and modified, there needs to be separate custom activity for composing
+	encrypted messages. Outgoing messages are stored in the SMS content provider as well, so they can appear in the conversation
+	history and receive status updates (like a delivery notification). Then they are encrypted and sent using the Android API
+	\texttt{SmsManager}.
 \section{Key Exchange Scenarios}
 	Since apps running as the system user (ie. with user id 1000) are not generally allowed to write to the sd card,
 	exporting keys from the key management app is implemented by using a \texttt{ACTION\_SEND} intent with a MIME type
