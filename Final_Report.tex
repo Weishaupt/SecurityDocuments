@@ -37,7 +37,9 @@
 \end{abstract}
 
 \tableofcontents
+% TODO shorten abstract or put TOC on own page, currently it gets split
 %\pagebreak[4]
+
 
 \section{Introduction}
 	Since Android API Level\footnote{\url{http://developer.android.com/guide/topics/manifest/uses-sdk-element.html\#ApiLevels}} 14 (4.0 Ice Cream Sandwich) the \texttt{KeyChain}\footnote{\url{http://developer.android.com/reference/android/security/KeyChain.html}} class exists in Android. The \texttt{KeyChain} class allows storage of asymmetric keys in a secure credential storage.
@@ -51,7 +53,7 @@
 
 	\subsection{Class Overview}
 		\begin{description}
-			\item[KeyChain] is the Android API for importing PKCS\#12 containers (private keys, public key certificates and CA certificates) and providing grant-based access of the keys to apps. The PKCS\#12 format requires the container to be encrypted. %TODO: Wikipeda states, that encryption is optional. What is the case? (Marvin)
+			\item[KeyChain] is the Android API for importing PKCS\#12 containers (private keys, public key certificates and CA certificates) and providing grant-based access of the keys to apps. The PKCS\#12 format requires the container to be encrypted.
 				\begin{itemize}
 					\item When an import is requested the API creates an Intent, which is handled in the system app \path{com.android.certinstaller} (source at \path{packages/apps/CertInstaller/CertInstaller.java} et al.). CertInstaller spawns a dialog and handles the container decryption process as well as stores the keys in the \texttt{keystore} daemon (see below).
 					\item Keys are identified by aliases, which are chosen by the user when the CertInstaller is invoked with an import request.
@@ -152,7 +154,9 @@
 			\item mac(keyId, algorithm, plaintext) \totype mac
 
 			\item generateKeyPair(keyId, algorithm, keysize) \totype publicKey
-			\item keyAgreementPhase(keyId, keyAlgorithm, agreementAlgorithm, publicKey, isLastPhase) \totype publicKey
+			\item keyAgreementPhase(keyId, keyAlgorithm, agreementAlgorithm,
+				\linebreak % XXX latex seems to have issues with proper line wrapping in tt
+				publicKey, isLastPhase) \totype publicKey
 		\end{enumerate}
 
 		Keys itself are referenced by an string alias (\emph{keyId}). Every key has exactly one alias assigned in the \texttt{keystore}. This alias must be unique.
@@ -172,7 +176,7 @@
 		
 		Each usage type has to be unique per contact. It is also possible to assign the same key more than once to a contact, provided that the usage type is different each time.
 
-		The key assignments are stored with a {\em MIME} type of \texttt{vnd.android.cursor.item/key} in the \texttt{ContactsContract.Data} table of the {\em Android contacts provider\footnote{\url{http://developer.android.com/guide/topics/providers/contacts-provider.html}}}.
+		The key assignments are stored with a MIME type of \texttt{vnd.android.cursor.item/key} in the \texttt{ContactsContract.Data} table of the {\em Android contacts provider\footnote{\url{http://developer.android.com/guide/topics/providers/contacts-provider.html}}}.
 		
 \section{Integrating the SMS app with our API}
 	\label{sec-sms-app}
@@ -190,8 +194,14 @@
 	%TODO: Explain exactly, how Sending and Receiving SMS is handled.
 	
 \section{Key Exchange Scenarios}
-	%TODO: If I remember correctly, we should spin some ideas around of how we would exchange keys.
-	%Besides Keysigning parties and the usage of NFC, Diffie could be explained a little bit here.
+	Since apps running as the system user (ie. with user id 1000) are not generally allowed to write to the sd card,
+	exporting keys from the key management app is implemented by using a \texttt{ACTION\_SEND} intent with a MIME type
+	of \texttt{*/*}. This way, the operating system automatically offers to send the key file for example as an attachment
+	via e-mail or via bluetooth. It should be easy to extend this functionality to Near Field Communication.
+
+	The receiving party receives the key file and can import it in their key management app. Before importing though,
+	this should display key fingerprints (or any other hash visualization scheme\footnote{as discussed in \cite{perrig99}})
+	to allow verification between both parties.
 	
 \section{Responsibilities}
 	%Who did what?
@@ -204,5 +214,11 @@
 	%Check MAC in API instead of usercode
 	%Implement NFC key exchange with system apps so user code would never see certs.
 
+\begin{thebibliography}{9}
+	\bibitem{perrig99}
+		Adrian Perrig and Dawn Song,
+		{\em Hash Visualization: a New Technique to improve Real-World Security}.
+		1999.
+\end{thebibliography}
 \end{document}
 
