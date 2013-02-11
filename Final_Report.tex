@@ -1,5 +1,5 @@
-%\documentclass[a4paper]{scrartcl}
-\documentclass[a4paper,draft]{scrartcl}
+%\documentclass[a4paper,bibtotoc]{scrartcl}
+\documentclass[a4paper,draft,bibtotoc]{scrartcl}
 
 \usepackage[english]{babel} %English 
 %\usepackage[T1]{fontenc}
@@ -236,10 +236,15 @@
 	to allow verification between both parties.
 	
 \section{Responsibilities}
-	%Who did what?
-	%Reports - All of us
-	%Framework - Kjell, (Cassius?)
-	%Crypt-SMS-App - All of us with Kjell doing the most?
+	The coding work can basically be broken down to two parts. The framework and the en-/decrypting SMS app. Furthermore there is the documentation, which includes the reports as well es the presentation.\\
+	\center
+		\begin{tabular}{l|l}
+		Subject & Responsible Person(s)\\
+		\hline
+		Framework & Kjell \\
+		SMS app & Cassius, Marvin \& Kjell \\
+		Documentation & Cassius, Marvin \& Kjell \\
+		\end{tabular}
 	
 \section{Further development}
 	%TODO: What could come next?
@@ -255,7 +260,7 @@
 		\item A further security consideration would be to store the SMS encrypted on the phone. Of course there are several possible ways to do so.
 		\begin{enumerate}
 			\item Encrypt SMS with the master key derived from the pin/pattern that locks the phone. This would be the way, the keystore is encrypted, too.
-			\item Encrypt with a application specific pin.
+			\item Encrypt with an application specific pin.
 		\end{enumerate}
 	\end{enumerate}
 	%Store encrypted on phone and decrypt with password.
