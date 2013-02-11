@@ -164,7 +164,6 @@
 		The functions \texttt{encrypt} and \texttt{decrypt} are used for symmetric as well as for asymmetric crypto.
 
 		The functions \texttt{sign}, \texttt{verify} and \texttt{storePublicCertificate} are exclusive to asymmetric crypto.
-		%TODO: Describe how an app is granted to use a key!
 
 		\texttt{generateKeyPair} and \texttt{keyAgreementPhase} are intended for key agreement protocols like the Diffie-Hellman key exchange. This way, you can create key agreement parameters (which are handled as \texttt{PrivateKey} and \texttt{PublicKey} objects), transmit them to your communication partner. You then feed in the received parameters using \texttt{keyAgreementPhase} which can return another set of parameters if the protocol is not finished yet, or, if the protocol is finished, it will immediately derive the shared secret key and store it under the alias previously used by the key exchange parameters.
 
@@ -244,7 +243,6 @@
 		\end{tabular}
 	
 \section{Further Development}
-	%TODO: What could come next?
 	As this project was intended as a proof-of-concept, there are quite a few angles, that leave room for improvement. Some ideas of further development are:
 	\begin{enumerate}
 		\item When symmetric cryptography is used, MACs have to be compared in user code. The KeyChain could provide a \texttt{verifyMac} method instead.
