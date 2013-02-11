@@ -170,10 +170,7 @@
 
 		The other functions are just for symmetric crypto operations.
 
-		The API is made available to apps from the framework in the \texttt{android.security} package, but every call
-		is actually forwarded using the Binder IPC to the \texttt{KeyChain} app which runs with system permissions and
-		is allowed to do any operation on the \texttt{keystore} daemon. The \texttt{KeyChain} app is therefore responsible
-		for checking if requesting apps are allowed to access specific keys before obeying to their requests.
+		The API is made available to apps from the framework in the \texttt{android.security} package, but every call is actually forwarded using the Binder IPC to the \texttt{KeyChain} app which runs with system permissions and	is allowed to do any operation on the \texttt{keystore} daemon. The \texttt{KeyChain} app is therefore responsible	for checking if requesting apps are allowed to access specific keys before obeying to their requests. If an app is a first time user of a key, \texttt{KeyChain} will display a new dialog to the user to ask permission. Once the permission is given, the app can access the key at any time.
 	
 	\subsection{Key Management App}
 		In addition to all the new crypto operations, keys have to be assigned to contacts. This is realized in the new {\em Key Management} system app. After a key was created or imported, it can be assigned to contacts. Each assignment gets a new string identifier (called {\em usage type}) which is arbitrary but application defined. For example a crypto e-mail could get \textit{mail-crypt} as usage type. Now whenever an encrypted e-mail is sent to a contact, the program only has to check if a key with this usage type is present. If not, no key for this usage is defined and so encryption can't happen. This way the user can decide which key to use for which application, and easily replace keys once they are obsolete.
@@ -186,7 +183,7 @@
 	\label{sec-sms-app}
 	
 	\subsection{Considerations}
-		At first we thought about integrating asymmetric cryptography with the standard e-mail app. Sven Bugiel brought to our attention that extending the default e-mail app would be quite complicated and would bear a huge overhead. Instead he suggested to take on SMS as this would be more feasible. As asymmetric crypto bears a huge overhead for SMS (in terms of message size and therefore cost per SMS) we decided to implement symmetric cryptography with the SMS app instead. %TODO: Is this enough for the part of "Why"?
+		At first we thought about integrating asymmetric cryptography with the standard e-mail app. Sven Bugiel brought to our attention that extending the default e-mail app would be quite complicated and would bear a huge overhead. Instead he suggested to take on SMS as this would be more feasible. As asymmetric crypto bears a huge overhead for SMS (in terms of message size and therefore cost per SMS) we decided to implement symmetric cryptography with the SMS app instead.
 	
 		In this scenario, we assumed that the symmetric key would already be exchanged with the other party. So we just had to handle sending and receiving SMS.
 	
@@ -263,7 +260,6 @@
 			\item Encrypt with an application specific pin.
 		\end{enumerate}
 	\end{enumerate}
-	%Store encrypted on phone and decrypt with password.
 
 \begin{thebibliography}{9}
 	\bibitem{perrig99}
