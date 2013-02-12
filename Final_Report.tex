@@ -205,7 +205,7 @@
 				\label{fig:compose}
 			\end{figure}
 
-			Contacts are only selectable if they have already a key with the {\em usage type} of \texttt{sms-symmetric} defined. After composing is finished, the user sends the SMS with the send button. The text will then be encrypted with the given symmetric key and encoded in Base64. To identify encrypted SMS when they are received, the @-character will be appended at the beginning and the end.
+			Contacts are only selectable if they have already a key with the {\em usage type} of \linebreak \texttt{sms-symmetric} defined. After composing is finished, the user sends the SMS with the send button. The text will then be encrypted with the given symmetric key and encoded in Base64. To identify encrypted SMS when they are received, the @-character will be appended at the beginning and the end.
 
 			Outgoing messages are stored in the (undocumented) SMS content provider \linebreak % check draft and linewrapping before removing
 			\texttt{content://sms}, so they can appear in the regular conversation history and receive status updates (for example a delivery notification). Then they are encrypted and sent, in multiple parts, if necessary, using the Android API \texttt{SmsManager}.
