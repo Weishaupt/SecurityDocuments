@@ -46,9 +46,9 @@
 \section{Introduction}
 	Since Android API Level\footnote{\url{http://developer.android.com/guide/topics/manifest/uses-sdk-element.html\#ApiLevels}} 14 (4.0 Ice Cream Sandwich) the \texttt{KeyChain}\footnote{\url{http://developer.android.com/reference/android/security/KeyChain.html}} class exists in Android. The \texttt{KeyChain} class allows storage of asymmetric keys in a secure credential storage.
 
-	In default implementation an authorized app is always able to retrieve the private key. Our goal was to extend the given functionality further with a crypto oracle, as well as support for different key types, both symmetric and asymmetric. With that functionality, apps should call the API with the data they want en-/decrypted or signed/verified. In the process of en-/decryption and signing the API returns the respective byte data. In verification the API returns a boolean indicating whether it had success or failure.
+	In the default implementation an authorized app is always able to retrieve the private key. Our goal was to extend the given functionality further with a crypto oracle, as well as support for different key types, both symmetric and asymmetric. With that functionality, apps should call the API with the data they want en-/decrypted or signed/verified. In the process of en-/decryption and signing the API returns the respective byte data. For verification the API returns a boolean indicating whether it had success or failure.
 	
-	Besides the new API, we wanted to alter at least one system app to comply with our enhanced KeyChain. After suggestions from Sven Bugiel (our supervisor) we decided to implement a symmetric encryption with the SMS app instead of the E-Mail app (More on that in section \ref{sec-sms-app}).
+	Besides the new API, we wanted to alter at least one system app to comply with our enhanced \texttt{KeyChain}. After suggestions from Sven Bugiel (our supervisor) we decided to implement a symmetric encryption with the SMS app instead of the E-Mail app (More on that in section \ref{sec-sms-app}).
 
 \section{Initial Situation}
 	At the starting point, we were confronted with a quite unfinished, not wholly tested API. Furthermore the KeyChain API lacks in documentation. So we had to figure out how it would be possible to implement our functionality. The following listing gives an overview of the need-to-know classes for this project:
@@ -61,16 +61,16 @@
 				\item Private as well as public keys (in the form of certificates) can be requested:
 				\begin{itemize}
 					\item If access to a private key was granted to the requesting app, it can be retrieved using \texttt{getPrivateKey()}.
-					\item Public keys can be retrieved through \texttt{getCertificateChain()}
+					\item Public keys can be retrieved through \texttt{getCertificateChain()} at all times.
 				\end{itemize}
 			\item \texttt{KeyChain} also contains \texttt{AndroidKeyPairGenerator} since Android 4.2, which generates and stores key pairs in \texttt{key\-store} automatically.
 			\end{itemize}
 
-		\item[KeyChain app] is a system application implementing most parts of the \texttt{KeyChain} API. It grants key access to apps and retrieves keys from the secure native \texttt{keystore} daemon (see below).
+		\item[KeyChain app] is a system application implementing most parts of the \texttt{KeyChain} API. It grants key access to apps and retrieves keys from the secure native \texttt{keystore} daemon.
 
 		\item[keystore] is the native daemon (written in C++) that holds encrypted key information.
 			\begin{itemize}
-				\item The storage is encrypted with a master key which is derived from the unlock passphrase, PIN or pattern of the device\footnote{In order to import and use certificates that are not in the trusted certificates from the Android base (known as user certificates), respectively use the \texttt{keystore}, a PIN, passphrase or pattern has to be created, that will unlock the device.}.
+				\item The storage is encrypted with a master key which is derived from the unlock passphrase, PIN or pattern of the device\footnote{In order to import and use certificates that are not in the trusted certificates from the Android base (known as \emph{trusted system credentials} in oppose to \emph{trusted user credentials}), a PIN, passphrase or pattern has to be created, that will unlock the device. Otherwise import and/or usage of user certificates is not possible.}.
 				\item Unlocks on the \emph{first successful unlock attempt} of the device, won't lock again \emph{until the phone is powered off}. This means the keystore is protected for example from rooting, but not from live-debugging. (It is possible for apps to lock it manually, though.)
 				\item The service supports two storage types:
 				\begin{description}
@@ -118,12 +118,12 @@
 
 		\subsubsection{The manual way}
 		After various attempts to reuse existing \texttt{KeyChain} code, we got to a working solution by doing everything in our own code and store the keys as blobs in the \texttt{keystore}. This means:
-			\begin{enumerate}
+			\begin{itemize}
 				\item Manually generate the key pair, manually store it in the \texttt{keystore} as a PKCS\#8 (not PKCS\#12) encoded blob and the certificate as PEM encoded blob.
 				\item For encryption, manually load the certificate from \texttt{keystore}, parse it, feed it to \path{java.security.Cipher}.
 				\item For decryption, manually load the private key from \texttt{keystore}, parse it, feed it to \path{java.security.Cipher}.
 				\item For symmetric crypto, we simply store the secret key bytes as blobs in \texttt{keystore}.
-			\end{enumerate}
+			\end{itemize}
 
 \section{Implementing the Framework}
 
@@ -180,11 +180,12 @@
 		
 \section{Integrating the SMS app with our API}
 	\label{sec-sms-app}
+	To prove the concept we developed is working, we had to implement at least one system app. System apps have the advantage, that they get delivered with the software and have a deeper integration into core Android.
 	
 	\subsection{Considerations}
-		At first we thought about integrating asymmetric cryptography with the standard e-mail app. Sven Bugiel brought to our attention that extending the default e-mail app would be quite complicated and would bear a huge overhead. Instead he suggested to take on SMS as this would be more feasible. As asymmetric crypto bears a huge overhead for SMS (in terms of message size and therefore cost per SMS) we decided to implement symmetric cryptography with the SMS app instead.
+		At first we thought about integrating asymmetric cryptography with the standard e-mail app. Sven Bugiel brought to our attention that extending the default e-mail app would be quite complicated and would bring us some extra work. Instead he suggested to take on SMS as this would be more feasible. As asymmetric crypto bears a huge overhead for SMS (in terms of message size and therefore cost per SMS) we decided to implement symmetric cryptography with the SMS app instead.
 	
-		In this scenario, we assumed that the symmetric key would already be exchanged with the other party. So we just had to handle sending and receiving SMS.
+		In this scenario, we assumed that the symmetric key would already be exchanged with the other party. Therefor we just had to handle sending and receiving SMS.
 	
 		The greatest inconvenience with system apps is that one first has to build the image once you developed something. As compiling Android even on powerful systems takes hours, we decided against altering the system app and instead overlaying it. This means:
 		\begin{itemize}
@@ -192,11 +193,11 @@
 			\item For receiving encrypted messages, broadcasts need to be captured.
 			\item In every case, the unencrypted messages are stored in the communication log with the respective contact.
 		\end{itemize}
-		This also means, other than when sending encrypted SMS, the user doesn't have to differ from his known behavior.
+		This also means, other than when sending encrypted SMS, the user doesn't have to differ from his known Android experience.
 		
 	\subsection{Implementation Details}
 		\subsubsection{Sending}
-			Since outgoing messages can't be intercepted and modified, there needs to be separate custom activity for composing encrypted messages.  The layout is very simple. It consists of a contact field, a text field and a send button. See figure \ref{fig:compose}.
+			Since outgoing messages can't be intercepted and modified, there needs to be a separate custom activity for composing encrypted messages.  The layout is very simple. It consists of a contact field, a text field and a send button. See figure \ref{fig:compose}.
 			\begin{figure}[h]
 				\centering
 					\includegraphics[width=17em]{crypt-compose}
@@ -204,10 +205,10 @@
 				\label{fig:compose}
 			\end{figure}
 
-			Contacts are only selectable if they have already a key with the {\em usage type} of \linebreak \texttt{sms-symmetric} defined. After composing is finished, the user sends the SMS with the send button. The text will then be encrypted with the given symmetric key and encoded in Base64. To identify encrypted SMS when they are received, the @-character will be appended at the beginning and the end.
+			Contacts are only selectable if they already have a key with the {\em usage type} of \linebreak \texttt{sms-symmetric} defined. After composing is finished, the user sends the SMS with the send button. The text will then be encrypted with the given symmetric key and encoded in Base64. To identify encrypted SMS when they are received, the @-character will be appended at the beginning and the end.
 
 			Outgoing messages are stored in the (undocumented) SMS content provider \linebreak % check draft and linewrapping before removing
-			\texttt{content://sms}, so they can appear in the regular conversation history and receive status updates (for example a delivery notification). Then they are encrypted and sent, in multiple parts, if necessary, using the Android API \texttt{SmsManager}.
+			\texttt{content://sms}, so they can appear in the regular conversation history and receive status updates (for example a delivery notification). After encryption the SMS will be split in multiple parts, if necessary, and send using the Android API \texttt{SmsManager}.
 
 		\subsubsection{Receiving}
       For receiving SMS, apps need to intercept the \texttt{SMS\_RECEIVED} broadcast with a high priority, before any other app can handle them. After being processed a notification is shown and the decrypted message will be stored in the SMS content provider as well.
@@ -215,7 +216,7 @@
       Once the user has assigned a \texttt{sms-symmetric} key to a contact, decrypting SMS works without any interference of the user. Basically, the steps of decrypting are reverse to encrypting. If a broadcast for a new incoming SMS is received, then:
 
 			\begin{algorithmic}
-				\REQUIRE {all message parts have been received and the full message reassembled}
+				\REQUIRE {all message parts have been received and the full message is reassembled}
 				\IF{the SMS is encrypted\footnote{determined by @-char at the beginning and end}}
 				\IF{sender has a key assigned}
 					\STATE {\tt abort broadcast}
@@ -248,7 +249,6 @@
  	
 	
 \section{Further development}
-	%TODO: What could come next?
 	As this project was intended as a proof-of-concept, there are quite a few angles, that leave room for improvement. Some ideas of further development are:
 	\begin{enumerate}
 		\item When symmetric cryptography is used, MACs have to be compared in user code. The KeyChain could provide a \texttt{verifyMac} method instead.
