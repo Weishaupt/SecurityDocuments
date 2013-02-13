@@ -70,7 +70,7 @@
 
 		\item[keystore] is the native daemon (written in C++) that holds encrypted key information.
 			\begin{itemize}
-				\item The storage is encrypted with a master key which is derived from the unlock passphrase, PIN or pattern of the device\footnote{In order to import and use certificates that are not in the trusted certificates from the Android base (known as \emph{trusted system credentials} in oppose to \emph{trusted user credentials}), a PIN, passphrase or pattern has to be created, that will unlock the device. Otherwise import and/or usage of user certificates is not possible.}.
+				\item The storage is encrypted with a master key which is derived from the unlock passphrase, PIN or pattern of the device\footnote{In order to import and use certificates that are not in the trusted certificates from the Android base (known as \emph{trusted system credentials} as opposed to \emph{trusted user credentials}), a PIN, passphrase or pattern has to be created, that will unlock the device. Otherwise import and/or usage of user certificates is not possible.}.
 				\item Unlocks on the \emph{first successful unlock attempt} of the device, won't lock again \emph{until the phone is powered off}. This means the keystore is protected for example from rooting, but not from live-debugging. (It is possible for apps to lock it manually, though.)
 				\item The service supports two storage types:
 				\begin{description}
@@ -180,12 +180,12 @@
 		
 \section{Integrating the SMS app with our API}
 	\label{sec-sms-app}
-	To prove the concept we developed is working, we had to implement at least one system app. System apps have the advantage, that they get delivered with the software and have a deeper integration into core Android.
+	To prove the concept we developed is working, we had to implement at least one system app.
 	
 	\subsection{Considerations}
 		At first we thought about integrating asymmetric cryptography with the standard e-mail app. Sven Bugiel brought to our attention that extending the default e-mail app would be quite complicated and would bring us some extra work. Instead he suggested to take on SMS as this would be more feasible. As asymmetric crypto bears a huge overhead for SMS (in terms of message size and therefore cost per SMS) we decided to implement symmetric cryptography with the SMS app instead.
 	
-		In this scenario, we assumed that the symmetric key would already be exchanged with the other party. Therefor we just had to handle sending and receiving SMS.
+		In this scenario, we assumed that the symmetric key would already be exchanged with the other party. Therefore we just had to handle sending and receiving SMS.
 	
 		The greatest inconvenience with system apps is that one first has to build the image once you developed something. As compiling Android even on powerful systems takes hours, we decided against altering the system app and instead overlaying it. This means:
 		\begin{itemize}
@@ -208,7 +208,7 @@
 			Contacts are only selectable if they already have a key with the {\em usage type} of \linebreak \texttt{sms-symmetric} defined. After composing is finished, the user sends the SMS with the send button. The text will then be encrypted with the given symmetric key and encoded in Base64. To identify encrypted SMS when they are received, the @-character will be appended at the beginning and the end.
 
 			Outgoing messages are stored in the (undocumented) SMS content provider \linebreak % check draft and linewrapping before removing
-			\texttt{content://sms}, so they can appear in the regular conversation history and receive status updates (for example a delivery notification). After encryption the SMS will be split in multiple parts, if necessary, and send using the Android API \texttt{SmsManager}.
+			\texttt{content://sms}, so they can appear in the regular conversation history and receive status updates (for example a delivery notification). After encryption the SMS will be split in multiple parts, if necessary, and sent using the Android API \texttt{SmsManager}.
 
 		\subsubsection{Receiving}
       For receiving SMS, apps need to intercept the \texttt{SMS\_RECEIVED} broadcast with a high priority, before any other app can handle them. After being processed a notification is shown and the decrypted message will be stored in the SMS content provider as well.
@@ -238,7 +238,8 @@
 	
 \section{Responsibilities}
 	The coding work can basically be broken down to two parts. The framework and the en-/decrypting SMS app. Furthermore there is the documentation, which includes the reports as well es the presentation.\\
-	\center
+
+	\begin{center}
 		\begin{tabular}{l|l}
 		Subject & Responsible Person(s)\\
 		\hline
@@ -246,6 +247,7 @@
 		SMS app & Cassius, Marvin \& Kjell \\
 		Documentation & Cassius, Marvin \& Kjell \\
 		\end{tabular}
+	\end{center}
  	
 	
 \section{Further development}
