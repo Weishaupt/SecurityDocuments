@@ -47,11 +47,69 @@
 		\tableofcontents[currentsection]
 	\end{frame}
 	\begin{frame}
-	\frametitle{Herp Der4}
+		\frametitle{Existing Android API}
+
+		Java Cryptography Architecture (JCA)
 		\begin{itemize}
-			\item blubb
-			\item bla
-			\item bluh
+			\item offers interfaces for SecretKey/PublicKey/PrivateKey
+			\item offers factories for ciphers, signature schemes etc. to work on the corresponding implementation of keys
+		\end{itemize}
+
+		native (C++) keystore daemon
+		\begin{itemize}
+			\item stores key material encrypted using phone lock passphrase, pin or pattern
+			\item offers an OpenSSL engine for loading JCA Key objects from the store without exposing the key material itself, but...
+				\begin{itemize}
+					\item there is no real access control
+					\item only RSA keys are supported
+					\item attempting to use the keys for anything causes a SIGSEGV in dalvik {\tt :-(}
+				\end{itemize}
+		\end{itemize}
+	\end{frame}
+\section{Implementation Details}
+	\begin{frame}
+		\tableofcontents[currentsection]
+	\end{frame}
+	\begin{frame}
+		\frametitle{Overview}
+		\begin{itemize}
+			\item a system app for key management, such as
+				\begin{itemize}
+					\item key generation
+					\item import/export/deletion of key pairs
+					\item granting key access
+				\end{itemize}
+			\item a public API which allows
+				\begin{itemize}
+					\item encryption / decryption
+					\item signing / verification / MAC
+					\item generation / import of symmetric keys
+					\item key agreement protocols
+				\end{itemize}
+		\end{itemize}
+	\end{frame}
+
+	\begin{frame}
+		\frametitle{Key Identification}
+		\begin{itemize}
+			\item each key is referenced by a unique string alias
+			\item keys can be assigned to contacts using the {\em Key Management} app
+			\item each assignment has a {\em key usage type identifier}
+				\begin{itemize}
+					\item arbitrary string token (application defined)
+					\item apps can request a key with a given type for a given contact
+					\item this way the user can easily choose which key to use for which app, and replace keys once they are obsoleted
+				\end{itemize}
+		\end{itemize}
+	\end{frame}
+
+	\begin{frame}
+		\frametitle{API usage}
+		\begin{itemize}
+			\item API calls are forwarded using binder IPC to the {\em keychain} system app
+			\item system app checks if the calling app is allowed to use the key
+			\item system app may present the user with a dialog to authorize the access
+			\item if authorized, the system app processes the request and sends the result back to the caller
 		\end{itemize}
 	\end{frame}
 
@@ -75,11 +133,13 @@
 	\begin{frame}
 	\frametitle{Trivia}
 		%Amount spend by Kjell generating Images 10, 20, 40 hours?
-		MIPS vs. x86 Emulator Image
 		\begin{itemize}
-			\item Mere seconds in x86 image%Generating Keys in Emulator
-			\item About 30 Minutes in MIPS
-			%What else nice trivia we have?
+			\item time spent building full images: approx. 80 hours
+			\item RSA 1024-bit key generation
+				\begin{itemize}
+					\item regular MIPS emulator image: 10 minutes
+					\item x86 emulator image using VT-x/AMD-V: less than 5 seconds
+				\end{itemize}
 		\end{itemize}
 	\end{frame}
 
