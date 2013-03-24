@@ -1,4 +1,6 @@
 \documentclass{beamer}
+\usepackage{algorithmic}
+
 \title{KeyChain Extension and Integration}
 \subtitle{Presentation}
 \author[Braden, Dickhaus, Puodzius]{Kjell Braden, Marvin Dickhaus, Cassius Puodzius}
@@ -21,11 +23,11 @@
 		\tableofcontents[currentsection]
 	\end{frame}
 	\begin{frame}
-	\frametitle{Herp Der2}
+	\frametitle{Motivation}
 	\begin{itemize}
-		\item blubb
-		\item bla
-		\item bluh
+		\item KeyChain is used poorly in current Android Versions
+		\item Tighter integration of encryption
+		\item Broader acceptance of encryption
 	\end{itemize}
 	\end{frame}
 
@@ -118,13 +120,46 @@
 		\tableofcontents[currentsection]
 	\end{frame}
 	\begin{frame}
-	\frametitle{Herp Der5}
+	\frametitle{Considerations}
 		\begin{itemize}
-			\item blubb
-			\item bla
-			\item bluh
+			\item Separate UI for sending
+			\item Lookup of keys (key usage type)
+			\item Storage of SMS %in the global SMS content provider
+			\item Recognize encrypted messages
+			\item Keep it as simple as possible %user doesn't have to differ from it's known android behavior.
 		\end{itemize}
 	\end{frame}
+	\begin{frame}
+	\frametitle{Sending and Receiving}
+		\begin{block}{Receiving}
+			\begin{itemize}
+				\item Capture {\tt SMS\_RECEIVED} broadcast
+				\item Recognizing encrypted SMS
+			\end{itemize}
+		\end{block}
+		\begin{block}{Sending}
+			\begin{itemize}
+				\item Select contact
+				\item Encrypt composed message
+				\item Send Base64-encoded message via SMS
+				\item Store unencrypted locally
+			\end{itemize}
+		\end{block}
+	\end{frame}
+	\begin{frame}
+		\frametitle{Receiving Workflow}%Can be ignored if there is no time left.
+		\begin{algorithmic}
+			\REQUIRE {all message parts have been received and the full message is reassembled}
+			\IF{the SMS is encrypted\footnote{determined by @-char at the beginning and end}}
+			\IF{sender has a key assigned}
+				\STATE {\tt abort broadcast}
+				\STATE {\tt decrypt SMS}
+				\STATE {\tt store decrypted SMS in the conversation log}
+			\ENDIF
+			\ENDIF
+		\end{algorithmic}
+	\end{frame}
+
 	
 \section{Trivia}
 	\begin{frame}
