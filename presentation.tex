@@ -41,10 +41,18 @@
 		\tableofcontents[currentsection]
 	\end{frame}
 	\begin{frame}
+	% this should be things the api has to fulfil/provide, not technical requirements!
 	\frametitle{Requirements}
+		Apps should be able to...
 		\begin{itemize}
-			\item ARM EABI v7a System Image (API 17)
-			\item Extended KeyChain framework
+			\item run common crypto operations without accessing keys directly
+			\item generate, store and export symmetric keys
+			\item store and export public keys
+			\item run key agreement protocols 
+			\begin{itemize}
+				\item store the key agreement parameters in the KeyChain
+				\item automatically derive and store the shared secret key in the KeyChain
+			\end{itemize}
 		\end{itemize}
 	\end{frame}
 
@@ -55,13 +63,14 @@
 	\begin{frame}
 		\frametitle{Existing Android API}
 
-		Java Cryptography Architecture (JCA)
+		\begin{block}{Java Cryptography Architecture (JCA)}
 		\begin{itemize}
 			\item offers interfaces for SecretKey/PublicKey/PrivateKey
 			\item offers factories for ciphers, signature schemes etc. to work on the corresponding implementation of keys
 		\end{itemize}
+		\end{block}
 
-		native (C++) keystore daemon
+		\begin{block}{native (C++) keystore daemon}
 		\begin{itemize}
 			\item stores key material encrypted using phone lock passphrase, pin or pattern
 			\item offers an OpenSSL engine for loading JCA Key objects from the store without exposing the key material itself, but...
@@ -71,6 +80,7 @@
 					\item attempting to use the keys for anything causes a SIGSEGV in dalvik {\tt :-(}
 				\end{itemize}
 		\end{itemize}
+		\end{block}
 	\end{frame}
 \section{Implementation Details}
 	\begin{frame}
