@@ -5,7 +5,7 @@
 \subtitle{Presentation}
 \author[Braden, Dickhaus, Puodzius]{Kjell Braden, Marvin Dickhaus, Cassius Puodzius}
 \institute{Fachbereich Informatik \\ TU Darmstadt}
-\date{February 15, 2013}
+\date{March 27, 2013}
 
 \usetheme{Berkeley}
 \usecolortheme{dove}
@@ -25,10 +25,15 @@
 	\begin{frame}
 	\frametitle{Motivation}
 	\begin{itemize}
-		\item KeyChain is used poorly in current Android Versions
-		\item Tighter integration of encryption
-		\item Broader acceptance of encryption
+		\item KeyChain is poorly used in current Android Versions
+		\item Lack of integration between key access and its use
+		\item Broader acceptance of encryption % What does it mean?
 	\end{itemize}
+	Goals:
+	\begin{itemize}
+		\item Improve secure storage and authorization handling for keys
+		\item Support easy use of cryptographic functions for apps
+	\end{itemize}	
 	\end{frame}
 
 \section{Requirements}
@@ -36,11 +41,10 @@
 		\tableofcontents[currentsection]
 	\end{frame}
 	\begin{frame}
-	\frametitle{Herp Der3}
+	\frametitle{Requirements}
 		\begin{itemize}
-			\item blubb
-			\item bla
-			\item bluh
+			\item ARM EABI v7a System Image (API 17)
+			\item Extended KeyChain framework
 		\end{itemize}
 	\end{frame}
 
@@ -84,7 +88,7 @@
 			\item a public API which allows
 				\begin{itemize}
 					\item encryption / decryption
-					\item signing / verification / MAC
+					\item authentication (signature/MAC) / verification
 					\item generation / import of symmetric keys
 					\item key agreement protocols
 				\end{itemize}
@@ -131,18 +135,18 @@
 	\end{frame}
 	\begin{frame}
 	\frametitle{Sending and Receiving}
-		\begin{block}{Receiving}
-			\begin{itemize}
-				\item Capture {\tt SMS\_RECEIVED} broadcast
-				\item Recognizing encrypted SMS
-			\end{itemize}
-		\end{block}
 		\begin{block}{Sending}
 			\begin{itemize}
 				\item Select contact
 				\item Encrypt composed message
 				\item Send Base64-encoded message via SMS
-				\item Store unencrypted locally
+				\item Store copy of plain message locally
+			\end{itemize}
+		\end{block}
+		\begin{block}{Receiving}
+			\begin{itemize}
+				\item Capture {\tt SMS\_RECEIVED} broadcast
+				\item Recognizing encrypted SMS
 			\end{itemize}
 		\end{block}
 	\end{frame}
@@ -150,14 +154,20 @@
 		\frametitle{Receiving Workflow}%Can be ignored if there is no time left.
 		\begin{algorithmic}
 			\REQUIRE {all message parts have been received and the full message is reassembled}
-			\IF{the SMS is encrypted\footnote{determined by @-char at the beginning and end}}
-			\IF{sender has a key assigned}
-				\STATE {\tt abort broadcast}
-				\STATE {\tt decrypt SMS}
-				\STATE {\tt store decrypted SMS in the conversation log}
-			\ENDIF
-			\ENDIF
+			%\IF{the SMS is encrypted\footnote{determined by @-char at the beginning and end}}
+			%\IF{sender has a key assigned}
+			%	\STATE {\tt abort broadcast}
+			%	\STATE {\tt decrypt SMS}
+			%	\STATE {\tt store decrypted SMS in the conversation log}
+			%\ENDIF
+			%\ENDIF
 		\end{algorithmic}
+		\begin{figure}[h]
+			\centering
+			\includegraphics[width=17em]{sms_receive}
+			\caption{Receiving workflow}
+			\label{fig:receive}
+		\end{figure}
 	\end{frame}
 
 	
